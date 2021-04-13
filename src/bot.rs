@@ -1,6 +1,10 @@
 use crate::{map::Map, network::connect};
 use log::*;
-use minecraft_format::{MinecraftPacketPart, packets::{Position, play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket}};
+use minecraft_format::{
+    gamemode::Gamemode,
+    packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position},
+    MinecraftPacketPart,
+};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -18,8 +22,10 @@ pub struct Bot {
     addr: String,
     port: u16,
     map: Map,
+    self_entity_id: Option<i32>,
     position: Option<PlayerPosition>,
     spawn_position: Option<Position>,
+    world_name: Option<String>,
 }
 
 impl Bot {
@@ -34,6 +40,8 @@ impl Bot {
             map: Map::new(),
             position: None,
             spawn_position: None,
+            self_entity_id: None,
+            world_name: None,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -135,10 +143,27 @@ impl Bot {
                 });
                 info!("Bot teleported at {:?}", self.position);
                 responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
+                responses.push(ServerboundPacket::PlayerPositionAndRotation {
+                    x,
+                    y,
+                    z,
+                    yaw,
+                    pitch,
+                    on_ground: true,
+                });
             }
             ClientboundPacket::SpawnPosition { location } => {
                 debug!("Spawn position set to {:?}", location);
                 self.spawn_position = Some(location);
+            }
+            ClientboundPacket::JoinGame {
+                player_id,
+                world_name,
+                ..
+            } => {
+                info!("Joined a world! ({})", world_name);
+                self.self_entity_id = Some(player_id);
+                self.world_name = Some(world_name.to_string());
             }
             _ => (),
         }
