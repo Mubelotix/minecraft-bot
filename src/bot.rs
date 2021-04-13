@@ -1,4 +1,4 @@
-use crate::{network::connect, map::Map};
+use crate::{map::Map, network::connect};
 use log::*;
 use minecraft_format::{
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket},
@@ -7,11 +7,21 @@ use minecraft_format::{
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[derive(Debug)]
+struct Position {
+    x: f64,
+    y: f64,
+    z: f64,
+    yaw: f32,
+    pitch: f32,
+}
+
 pub struct Bot {
     username: String,
     addr: String,
     port: u16,
     map: Map,
+    position: Option<Position>,
 }
 
 impl Bot {
@@ -24,6 +34,7 @@ impl Bot {
             addr,
             port,
             map: Map::new(),
+            position: None,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -75,8 +86,6 @@ impl Bot {
     }
 
     pub fn act(&mut self) -> Vec<ServerboundPacket> {
-        let block = self.map.get_block(0, 70, 0);
-        debug!("{:?}", block);
         Vec::new()
     }
 
@@ -91,6 +100,42 @@ impl Bot {
             }
             ClientboundPacket::UnloadChunk { chunk_x, chunk_y } => {
                 self.map.unload_chunk(chunk_x, chunk_y);
+            }
+            ClientboundPacket::PlayerPositionAndLook {
+                mut x,
+                mut y,
+                mut z,
+                mut yaw,
+                mut pitch,
+                flags,
+                teleport_id,
+            } => {
+                if let Some(old_position) = &self.position {
+                    if flags & 0x1 != 0 {
+                        x += old_position.x;
+                    }
+                    if flags & 0x2 != 0 {
+                        y += old_position.y;
+                    }
+                    if flags & 0x4 != 0 {
+                        z += old_position.z;
+                    }
+                    if flags & 0x8 != 0 {
+                        pitch = old_position.pitch;
+                    }
+                    if flags & 0x10 != 0 {
+                        yaw = old_position.yaw;
+                    }
+                };
+                self.position = Some(Position {
+                    x,
+                    y,
+                    z,
+                    yaw,
+                    pitch,
+                });
+                info!("Bot teleported at {:?}", self.position);
+                responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
             }
             _ => (),
         }
