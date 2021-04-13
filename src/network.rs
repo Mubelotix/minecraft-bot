@@ -15,14 +15,14 @@ fn send_packets(hidden_receiver: mpsc::Receiver<Vec<u8>>, stream: TcpStream) {
     }
 }
 
-pub fn connect() -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
-    let mut stream = TcpStream::connect("127.0.0.1:25565").unwrap();
+pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
+    let mut stream = TcpStream::connect(format!("{}:{}", addr, port)).unwrap();
     send_packet(
         &mut stream,
         minecraft_format::packets::handshake::ServerboundPacket::Hello {
             protocol_version: 754.into(),
-            server_address: "127.0.0.1",
-            server_port: 25565,
+            server_address: addr,
+            server_port: port,
             next_state: minecraft_format::packets::ConnectionState::Login,
         }
         .serialize_minecraft_packet()
@@ -34,7 +34,7 @@ pub fn connect() -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
 
     send_packet(
         &mut stream,
-        minecraft_format::packets::login::ServerboundPacket::LoginStart { username: "bot2" }
+        minecraft_format::packets::login::ServerboundPacket::LoginStart { username }
             .serialize_minecraft_packet()
             .unwrap(),
         None,
@@ -48,7 +48,7 @@ pub fn connect() -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
             &mut response,
         )
         .unwrap();
-    println!("{:?}", response_packet);
+    assert!(matches!(response_packet, minecraft_format::packets::login::ClientboundPacket::LoginSuccess{..}));
 
     let stream2 = stream.try_clone().unwrap();
 

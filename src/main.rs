@@ -7,7 +7,7 @@ pub mod network;
 use network::*;
 
 fn main() {
-    let (receiver, sender) = connect();
+    let (receiver, sender) = connect("127.0.0.1", 25565, "bot");
 
     loop {
         let mut packet_bytes = receiver.recv().unwrap();
