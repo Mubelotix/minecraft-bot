@@ -5,13 +5,24 @@ use minecraft_format::{
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket},
     MinecraftPacketPart,
 };
+use log::*;
 
-pub struct Bot {}
+pub struct Bot {
+    username: String,
+    addr: String,
+    port: u16,
+}
 
 impl Bot {
-    pub fn create(addr: &str, port: u16, username: &str) {
-        let (receiver, sender) = connect(addr, port, username);
-        let bot = Arc::new(Mutex::new(Bot{}));
+    pub fn create(addr: String, port: u16, username: String) {
+        debug!("Connecting {} to {}:{}", addr, port, username);
+        let (receiver, sender) = connect(&addr, port, &username);
+        info!("{} is connected on {}:{}", username, addr, port);
+        let bot = Arc::new(Mutex::new(Bot{
+            username,
+            addr,
+            port
+        }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
 
@@ -31,7 +42,7 @@ impl Bot {
                     let response_packet = match response_packet.serialize_minecraft_packet() {
                         Ok(response_packet) => response_packet,
                         Err(e) => {
-                            println!("Failed to serialize packet from client {}", e);
+                            eprintln!("Failed to serialize packet from client {}", e);
                             continue;
                         },
                     };
@@ -49,7 +60,7 @@ impl Bot {
                     let response_packet = match response_packet.serialize_minecraft_packet() {
                         Ok(response_packet) => response_packet,
                         Err(e) => {
-                            println!("Failed to serialize packet from client {}", e);
+                            eprintln!("Failed to serialize packet from client {}", e);
                             continue;
                         },
                     };
@@ -69,7 +80,6 @@ impl Bot {
         let mut responses = Vec::new();
         match packet {
             ClientboundPacket::KeepAlive { keep_alive_id } => {
-                println!("Pong");
                 responses.push(ServerboundPacket::KeepAlive{keep_alive_id});
             },
             ClientboundPacket::ChunkData { value: _ } => {
