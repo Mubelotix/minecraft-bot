@@ -89,6 +89,9 @@ impl Bot {
             ClientboundPacket::ChunkData { value } => {
                 self.map.load_chunk(value);
             }
+            ClientboundPacket::UnloadChunk { chunk_x, chunk_y } => {
+                self.map.unload_chunk(chunk_x, chunk_y);
+            }
             _ => (),
         }
         responses
