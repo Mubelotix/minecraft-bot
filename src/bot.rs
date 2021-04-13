@@ -40,9 +40,9 @@ impl Bot {
             }
         });
 
-        std::thread::spawn(move || {
-            loop {
-                let start_time = Instant::now();
+        loop {
+            let start_time = Instant::now();
+            {
                 let mut bot = bot2.lock().unwrap();
                 let response_packets = bot.act();
                 for response_packet in response_packets {
@@ -55,10 +55,10 @@ impl Bot {
                     };
                     sender2.send(response_packet).unwrap();
                 }
-                let elapsed_time = Instant::now() - start_time;
-                std::thread::sleep(std::time::Duration::from_millis(50) - elapsed_time);
             }
-        });
+            let elapsed_time = Instant::now() - start_time;
+            std::thread::sleep(std::time::Duration::from_millis(50) - elapsed_time);
+        }
     }
 
     pub fn act(&mut self) -> Vec<ServerboundPacket> {
@@ -69,6 +69,7 @@ impl Bot {
         let mut responses = Vec::new();
         match packet {
             ClientboundPacket::KeepAlive { keep_alive_id } => {
+                println!("Pong");
                 responses.push(ServerboundPacket::KeepAlive{keep_alive_id});
             },
             ClientboundPacket::ChunkData { value: _ } => {
