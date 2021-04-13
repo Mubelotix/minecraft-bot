@@ -27,6 +27,10 @@ pub struct Bot {
     position: Option<PlayerPosition>,
     spawn_position: Option<Position>,
     world_name: Option<String>,
+
+    health: f32,
+    food: u32,
+    food_saturation: f32,
 }
 
 impl Bot {
@@ -43,6 +47,10 @@ impl Bot {
             spawn_position: None,
             self_entity_id: None,
             world_name: None,
+
+            health: 11.0,
+            food: 11,
+            food_saturation: 0.0,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -183,6 +191,18 @@ impl Bot {
                 info!("Joined a world! ({})", world_name);
                 self.self_entity_id = Some(player_id);
                 self.world_name = Some(world_name.to_string());
+            }
+            ClientboundPacket::UpdateHealth { health, food, food_saturation } => {
+                self.health = health;
+                self.food = std::cmp::max(food.0, 0) as u32;
+                self.food_saturation = food_saturation;
+
+                if health <= 0.0 {
+                    info!("Bot died: respawning...");
+                    responses.push(ServerboundPacket::ClientStatus{
+                        action: minecraft_format::game_state::ClientStatus::PerformRespawn,
+                    });
+                }
             }
             _ => (),
         }
