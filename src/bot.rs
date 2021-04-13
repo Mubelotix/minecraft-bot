@@ -1,4 +1,4 @@
-use crate::network::connect;
+use crate::{network::connect, map::Map};
 use log::*;
 use minecraft_format::{
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket},
@@ -11,6 +11,7 @@ pub struct Bot {
     username: String,
     addr: String,
     port: u16,
+    map: Map,
 }
 
 impl Bot {
@@ -22,6 +23,7 @@ impl Bot {
             username,
             addr,
             port,
+            map: Map::new(),
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -73,6 +75,8 @@ impl Bot {
     }
 
     pub fn act(&mut self) -> Vec<ServerboundPacket> {
+        let block = self.map.get_block(0, 70, 0);
+        debug!("{:?}", block);
         Vec::new()
     }
 
@@ -82,8 +86,8 @@ impl Bot {
             ClientboundPacket::KeepAlive { keep_alive_id } => {
                 responses.push(ServerboundPacket::KeepAlive { keep_alive_id });
             }
-            ClientboundPacket::ChunkData { value: _ } => {
-                // TODO
+            ClientboundPacket::ChunkData { value } => {
+                self.map.load_chunk(value);
             }
             _ => (),
         }

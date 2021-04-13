@@ -1,5 +1,8 @@
+#![allow(clippy::new_without_default)]
+
 pub mod bot;
 pub mod network;
+pub mod map;
 use bot::Bot;
 
 fn main() {
