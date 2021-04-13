@@ -1,14 +1,11 @@
 use crate::{map::Map, network::connect};
 use log::*;
-use minecraft_format::{
-    packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket},
-    MinecraftPacketPart,
-};
+use minecraft_format::{MinecraftPacketPart, packets::{Position, play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket}};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[derive(Debug)]
-struct Position {
+struct PlayerPosition {
     x: f64,
     y: f64,
     z: f64,
@@ -21,7 +18,8 @@ pub struct Bot {
     addr: String,
     port: u16,
     map: Map,
-    position: Option<Position>,
+    position: Option<PlayerPosition>,
+    spawn_position: Option<Position>,
 }
 
 impl Bot {
@@ -35,6 +33,7 @@ impl Bot {
             port,
             map: Map::new(),
             position: None,
+            spawn_position: None,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -127,7 +126,7 @@ impl Bot {
                         yaw = old_position.yaw;
                     }
                 };
-                self.position = Some(Position {
+                self.position = Some(PlayerPosition {
                     x,
                     y,
                     z,
@@ -136,6 +135,10 @@ impl Bot {
                 });
                 info!("Bot teleported at {:?}", self.position);
                 responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
+            }
+            ClientboundPacket::SpawnPosition { location } => {
+                debug!("Spawn position set to {:?}", location);
+                self.spawn_position = Some(location);
             }
             _ => (),
         }
