@@ -11,6 +11,7 @@ fn receive_packets(hidden_sender: mpsc::Sender<Vec<u8>>, stream: TcpStream) {
 fn send_packets(hidden_receiver: mpsc::Receiver<Vec<u8>>, stream: TcpStream) {
     loop {
         let packet = hidden_receiver.recv().unwrap();
+        log::trace!("Sending {:?}", packet);
         send_packet(&stream, packet, None, None).unwrap();
     }
 }

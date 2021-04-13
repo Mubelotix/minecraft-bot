@@ -1,8 +1,9 @@
 use crate::{map::Map, network::connect};
 use log::*;
 use minecraft_format::{
-    gamemode::Gamemode,
+    chat::ChatMode,
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position},
+    slots::MainHand,
     MinecraftPacketPart,
 };
 use std::sync::{Arc, Mutex};
@@ -45,6 +46,24 @@ impl Bot {
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
+
+        // Wait for the server to be ready.
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        sender
+            .send(
+                ServerboundPacket::ClientSettings {
+                    locale: "en_US",
+                    render_distance: 32,
+                    chat_mode: ChatMode::Enabled,
+                    chat_colors_enabled: true,
+                    displayed_skin_parts: 127,
+                    main_hand: MainHand::Right,
+                }
+                .serialize_minecraft_packet()
+                .unwrap(),
+            )
+            .unwrap();
 
         std::thread::spawn(move || loop {
             let mut packet = receiver.recv().unwrap();
