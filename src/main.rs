@@ -1,5 +1,5 @@
-pub mod network;
 pub mod bot;
+pub mod network;
 use bot::Bot;
 
 fn main() {

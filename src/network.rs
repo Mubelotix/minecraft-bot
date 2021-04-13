@@ -15,7 +15,11 @@ fn send_packets(hidden_receiver: mpsc::Receiver<Vec<u8>>, stream: TcpStream) {
     }
 }
 
-pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
+pub fn connect(
+    addr: &str,
+    port: u16,
+    username: &str,
+) -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
     let mut stream = TcpStream::connect(format!("{}:{}", addr, port)).unwrap();
     send_packet(
         &mut stream,
@@ -48,7 +52,10 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
             &mut response,
         )
         .unwrap();
-    assert!(matches!(response_packet, minecraft_format::packets::login::ClientboundPacket::LoginSuccess{..}));
+    assert!(matches!(
+        response_packet,
+        minecraft_format::packets::login::ClientboundPacket::LoginSuccess { .. }
+    ));
 
     let stream2 = stream.try_clone().unwrap();
 

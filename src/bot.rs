@@ -1,11 +1,11 @@
-use std::sync::{Mutex, Arc};
-use std::time::Instant;
 use crate::network::connect;
+use log::*;
 use minecraft_format::{
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket},
     MinecraftPacketPart,
 };
-use log::*;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 pub struct Bot {
     username: String,
@@ -18,36 +18,36 @@ impl Bot {
         debug!("Connecting {} to {}:{}", addr, port, username);
         let (receiver, sender) = connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
-        let bot = Arc::new(Mutex::new(Bot{
+        let bot = Arc::new(Mutex::new(Bot {
             username,
             addr,
-            port
+            port,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
 
-        std::thread::spawn(move || {
-            loop {
-                let mut packet = receiver.recv().unwrap();
-                let packet = match ClientboundPacket::deserialize_uncompressed_minecraft_packet(packet.as_mut_slice()) {
-                    Ok(packet) => packet,
+        std::thread::spawn(move || loop {
+            let mut packet = receiver.recv().unwrap();
+            let packet = match ClientboundPacket::deserialize_uncompressed_minecraft_packet(
+                packet.as_mut_slice(),
+            ) {
+                Ok(packet) => packet,
+                Err(e) => {
+                    eprintln!("Failed to parse clientbound packet: {}", e);
+                    continue;
+                }
+            };
+            let mut bot = bot.lock().unwrap();
+            let response_packets = bot.update(packet);
+            for response_packet in response_packets {
+                let response_packet = match response_packet.serialize_minecraft_packet() {
+                    Ok(response_packet) => response_packet,
                     Err(e) => {
-                        eprintln!("Failed to parse clientbound packet: {}", e);
+                        eprintln!("Failed to serialize packet from client {}", e);
                         continue;
                     }
                 };
-                let mut bot = bot.lock().unwrap();
-                let response_packets = bot.update(packet);
-                for response_packet in response_packets {
-                    let response_packet = match response_packet.serialize_minecraft_packet() {
-                        Ok(response_packet) => response_packet,
-                        Err(e) => {
-                            eprintln!("Failed to serialize packet from client {}", e);
-                            continue;
-                        },
-                    };
-                    sender.send(response_packet).unwrap();
-                }
+                sender.send(response_packet).unwrap();
             }
         });
 
@@ -62,7 +62,7 @@ impl Bot {
                         Err(e) => {
                             eprintln!("Failed to serialize packet from client {}", e);
                             continue;
-                        },
+                        }
                     };
                     sender2.send(response_packet).unwrap();
                 }
@@ -80,11 +80,11 @@ impl Bot {
         let mut responses = Vec::new();
         match packet {
             ClientboundPacket::KeepAlive { keep_alive_id } => {
-                responses.push(ServerboundPacket::KeepAlive{keep_alive_id});
-            },
+                responses.push(ServerboundPacket::KeepAlive { keep_alive_id });
+            }
             ClientboundPacket::ChunkData { value: _ } => {
                 // TODO
-            },
+            }
             _ => (),
         }
         responses
