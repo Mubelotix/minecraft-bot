@@ -123,10 +123,8 @@ impl Bot {
         let mut packets = Vec::new();
         if let Some(position) = self.position.as_mut() {
             if !self.map.is_on_ground(position.x, position.y, position.z) {
-                position.y -= 0.1;
-                position.y = position.y.floor();
-                debug!("going down");
-
+                position.y += self.map.max_fall(position.x, position.y, position.z);
+                
                 packets.push(ServerboundPacket::PlayerPosition {
                     x: position.x,
                     y: position.y,
@@ -134,8 +132,6 @@ impl Bot {
                     on_ground: false,
                 });
             } else {
-                debug!("on ground!");
-
                 packets.push(ServerboundPacket::PlayerFulcrum {
                     on_ground: true,
                 });

@@ -102,7 +102,7 @@ impl Map {
             None
         };
 
-        let y = y.floor() as i32 - 1;
+        let y = (y - 0.01).floor() as i32;
         if self.get_block(x1, y, z1) != Block::Air {
             return true;
         }
@@ -123,5 +123,19 @@ impl Map {
         }
 
         false
+    }
+
+    pub fn max_fall(&self, x: f64, y: f64, z: f64) -> f64 {
+        if self.is_on_ground(x, y, z) {
+            return 0.0;
+        }
+        if self.is_on_ground(x, y - 1.0, z) {
+            return (y - 0.01).floor() - (y - 0.01);
+        }
+        if self.is_on_ground(x, y - 2.0, z) {
+            return (y - 0.01).floor() - (y - 0.01) - 1.0;
+        }
+
+        -2.0
     }
 }
