@@ -1,13 +1,18 @@
 use crate::{map::Map, network::connect};
 use log::*;
 use minecraft_format::{
+    blocks::MultiBlockChange,
     chat::ChatMode,
+    ids::blocks::Block,
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position},
     slots::MainHand,
     MinecraftPacketPart,
 };
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use std::{
+    ops::Mul,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Debug)]
 struct PlayerPosition {
@@ -35,7 +40,7 @@ pub struct Bot {
 
 impl Bot {
     pub fn create(addr: String, port: u16, username: String) {
-        debug!("Connecting {} to {}:{}", addr, port, username);
+        debug!("Connecting {} to {}:{}", username, addr, port);
         let (receiver, sender) = connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
         let bot = Arc::new(Mutex::new(Bot {
@@ -80,7 +85,11 @@ impl Bot {
             ) {
                 Ok(packet) => packet,
                 Err(e) => {
-                    log::error!("Failed to parse clientbound packet: {:?}. In {:?}", e, packet_bytes);
+                    log::error!(
+                        "Failed to parse clientbound packet: {:?}. In {:?}",
+                        e,
+                        packet_bytes
+                    );
                     continue;
                 }
             };
@@ -124,7 +133,7 @@ impl Bot {
         if let Some(position) = self.position.as_mut() {
             if !self.map.is_on_ground(position.x, position.y, position.z) {
                 position.y += self.map.max_fall(position.x, position.y, position.z);
-                
+
                 packets.push(ServerboundPacket::PlayerPosition {
                     x: position.x,
                     y: position.y,
@@ -132,9 +141,7 @@ impl Bot {
                     on_ground: false,
                 });
             } else {
-                packets.push(ServerboundPacket::PlayerFulcrum {
-                    on_ground: true,
-                });
+                packets.push(ServerboundPacket::PlayerFulcrum { on_ground: true });
             }
         }
 
@@ -186,7 +193,7 @@ impl Bot {
                     yaw,
                     pitch,
                 });
-                info!("Bot teleported at {:?}", self.position);
+                warn!("Bot teleported at {:?}", self.position);
                 responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
                 responses.push(ServerboundPacket::PlayerPositionAndRotation {
                     x,
@@ -210,17 +217,52 @@ impl Bot {
                 self.self_entity_id = Some(player_id);
                 self.world_name = Some(world_name.to_string());
             }
-            ClientboundPacket::UpdateHealth { health, food, food_saturation } => {
+            ClientboundPacket::UpdateHealth {
+                health,
+                food,
+                food_saturation,
+            } => {
                 self.health = health;
                 self.food = std::cmp::max(food.0, 0) as u32;
                 self.food_saturation = food_saturation;
 
                 if health <= 0.0 {
                     info!("Bot died: respawning...");
-                    responses.push(ServerboundPacket::ClientStatus{
+                    responses.push(ServerboundPacket::ClientStatus {
                         action: minecraft_format::game_state::ClientStatus::PerformRespawn,
                     });
                 }
+            }
+            ClientboundPacket::MultiBlockChange {
+                value:
+                    MultiBlockChange {
+                        chunk_section_position,
+                        inverse_trust_edges: _,
+                        blocks,
+                    },
+            } => {
+                let (chunk_x, chunk_y, chunk_z) =
+                    MultiBlockChange::decode_chunk_section_position(chunk_section_position);
+                trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
+                for block in blocks.items {
+                    let (block, block_x, block_y, block_z) =
+                        MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
+                    self.map
+                        .set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
+                }
+            }
+            ClientboundPacket::BlockChange {
+                location,
+                block_state,
+            } => {
+                let chunk_x = location.x.div_euclid(16);
+                let chunk_y = location.y.div_euclid(16) as i32;
+                let chunk_z = location.z.div_euclid(16);
+                let block_x = location.x.rem_euclid(16) as u8;
+                let block_y = location.y.rem_euclid(16) as u8;
+                let block_z = location.z.rem_euclid(16) as u8;
+                trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
+                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {std::mem::transmute(block_state.0)})
             }
             _ => (),
         }

@@ -22,14 +22,14 @@ impl Map {
             Err(e) => {
                 error!(
                     "Failed to parse chunk sections at {} {}: {}.",
-                    chunk_data.chunk_x, chunk_data.chunk_y, e
+                    chunk_data.chunk_x, chunk_data.chunk_z, e
                 );
                 return;
             }
         };
         self.chunk_columns
-            .insert((chunk_data.chunk_x, chunk_data.chunk_y), chunk_sections);
-        trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_y);
+            .insert((chunk_data.chunk_x, chunk_data.chunk_z), chunk_sections);
+        trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_z);
     }
 
     pub fn unload_chunk(&mut self, chunk_x: i32, chunk_y: i32) {
@@ -69,7 +69,10 @@ impl Map {
             .get((y_within_chunk * 16 * 16 + z_within_chunk * 16 + x_within_chunk) as usize)
         {
             Some(block_state) => block_state,
-            None => return Block::Air,
+            None => {
+                warn!("Missing block in the block array");
+                return Block::Air
+            },
         };
 
         match Block::from_state_id(*block_state_id) {
@@ -137,5 +140,69 @@ impl Map {
         }
 
         -2.0
+    }
+    
+    pub fn set_block_state(
+        &mut self,
+        chunk_x: i32,
+        chunk_y: i32,
+        chunk_z: i32,
+        block_x: u8,
+        block_y: u8,
+        block_z: u8,
+        block_state_id: u32,
+    ) {
+        let chunk_column = match self.chunk_columns.get_mut(&(chunk_x, chunk_z)) {
+            Some(chunk_column) => chunk_column,
+            None => {
+                warn!("Block set in a chunk that was not loaded (at {:?})", (chunk_x, chunk_y));
+                return;
+            }
+        };
+
+        let chunk_section = match chunk_column.get_mut(chunk_y as usize) {
+            Some(chunk_section) => chunk_section,
+            None => {
+                warn!("Block set in a chunk that does not exist");
+                return;
+            }
+        };
+
+        let blocks = match chunk_section {
+            Some(chunk_section) => &mut chunk_section.blocks,
+            None => {
+                trace!("Block set in inexistant chunk section: creating a new chunk section");
+                *chunk_section = Some(ChunkSection {
+                    block_count: 0,
+                    palette: None,
+                    blocks: vec![0; 16*16*16],
+                });
+                &mut chunk_section.as_mut().unwrap().blocks
+            }
+        };
+
+        let idx = block_y as usize * 16 * 16 + block_z as usize * 16 + block_x as usize;
+        match blocks.get_mut(idx) {
+            Some(old_block) => {
+                *old_block = block_state_id;
+            }
+            None => {
+                warn!("Block does not exist in this chunk section");
+            }
+        }
+    }
+
+    pub fn set_block(
+        &mut self,
+        chunk_x: i32,
+        chunk_y: i32,
+        chunk_z: i32,
+        block_x: u8,
+        block_y: u8,
+        block_z: u8,
+        block: Block,
+    ) {
+        let block_state_id = block.get_default_state_id();
+        self.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block_state_id)
     }
 }
