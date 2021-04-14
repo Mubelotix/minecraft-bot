@@ -74,13 +74,13 @@ impl Bot {
             .unwrap();
 
         std::thread::spawn(move || loop {
-            let mut packet = receiver.recv().unwrap();
+            let mut packet_bytes = receiver.recv().unwrap();
             let packet = match ClientboundPacket::deserialize_uncompressed_minecraft_packet(
-                packet.as_mut_slice(),
+                packet_bytes.as_mut_slice(),
             ) {
                 Ok(packet) => packet,
                 Err(e) => {
-                    eprintln!("Failed to parse clientbound packet: {}", e);
+                    log::error!("Failed to parse clientbound packet: {:?}. In {:?}", e, packet_bytes);
                     continue;
                 }
             };
@@ -90,7 +90,7 @@ impl Bot {
                 let response_packet = match response_packet.serialize_minecraft_packet() {
                     Ok(response_packet) => response_packet,
                     Err(e) => {
-                        eprintln!("Failed to serialize packet from client {}", e);
+                        log::error!("Failed to serialize packet from client {}", e);
                         continue;
                     }
                 };
@@ -107,7 +107,7 @@ impl Bot {
                     let response_packet = match response_packet.serialize_minecraft_packet() {
                         Ok(response_packet) => response_packet,
                         Err(e) => {
-                            eprintln!("Failed to serialize packet from client {}", e);
+                            log::error!("Failed to serialize packet from client {}", e);
                             continue;
                         }
                     };
@@ -120,7 +120,29 @@ impl Bot {
     }
 
     pub fn act(&mut self) -> Vec<ServerboundPacket> {
-        Vec::new()
+        let mut packets = Vec::new();
+        if let Some(position) = self.position.as_mut() {
+            if !self.map.is_on_ground(position.x, position.y, position.z) {
+                position.y -= 0.1;
+                position.y = position.y.floor();
+                debug!("going down");
+
+                packets.push(ServerboundPacket::PlayerPosition {
+                    x: position.x,
+                    y: position.y,
+                    z: position.z,
+                    on_ground: false,
+                });
+            } else {
+                debug!("on ground!");
+
+                packets.push(ServerboundPacket::PlayerFulcrum {
+                    on_ground: true,
+                });
+            }
+        }
+
+        packets
     }
 
     pub fn update(&mut self, packet: ClientboundPacket) -> Vec<ServerboundPacket> {

@@ -80,4 +80,48 @@ impl Map {
             }
         }
     }
+
+    pub fn is_on_ground(&self, x: f64, y: f64, z: f64) -> bool {
+        let x_floor = x.floor();
+        let x1 = x_floor as i32;
+        let x2 = if x - x_floor > 0.7 {
+            Some(x1 + 1)
+        } else if x - x_floor < 0.3 {
+            Some(x1 - 1)
+        } else {
+            None
+        };
+
+        let z_floor = z.floor();
+        let z1 = z_floor as i32;
+        let z2 = if z - z_floor > 0.7 {
+            Some(z1 + 1)
+        } else if z - z_floor < 0.3 {
+            Some(z1 - 1)
+        } else {
+            None
+        };
+
+        let y = y.floor() as i32 - 1;
+        if self.get_block(x1, y, z1) != Block::Air {
+            return true;
+        }
+        if let Some(x2) = x2 {
+            if self.get_block(x2, y, z1) != Block::Air {
+                return true;
+            }
+            if let Some(z2) = z2 {
+                if self.get_block(x2, y, z2) != Block::Air {
+                    return true;
+                }
+            }
+        }
+        if let Some(z2) = z2 {
+            if self.get_block(x1, y, z2) != Block::Air {
+                return true;
+            }
+        }
+
+        false
+    }
 }
