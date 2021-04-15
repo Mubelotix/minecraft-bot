@@ -262,7 +262,7 @@ impl Bot {
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
                 trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
-                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {std::mem::transmute(block_state.0)})
+                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {std::mem::transmute(block_state.0)});
             }
             _ => (),
         }

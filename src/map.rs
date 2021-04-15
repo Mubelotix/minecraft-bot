@@ -32,14 +32,14 @@ impl Map {
         trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_z);
     }
 
-    pub fn unload_chunk(&mut self, chunk_x: i32, chunk_y: i32) {
-        self.chunk_columns.remove(&(chunk_x, chunk_y));
-        trace!("Unloaded chunk {} {}", chunk_x, chunk_y);
+    pub fn unload_chunk(&mut self, chunk_x: i32, chunk_z: i32) {
+        self.chunk_columns.remove(&(chunk_x, chunk_z));
+        trace!("Unloaded chunk {} {}", chunk_x, chunk_z);
     }
 
     pub fn get_block(&self, x: i32, y: i32, z: i32) -> Block {
-        let x_within_chunk = x % 16;
-        let z_within_chunk = z % 16;
+        let x_within_chunk = x.rem_euclid(16);
+        let z_within_chunk = z.rem_euclid(16);
         let chunk_x = (x - x_within_chunk) / 16;
         let chunk_z = (z - z_within_chunk) / 16;
         let chunk_column = match self.chunk_columns.get(&(chunk_x, chunk_z)) {
@@ -51,7 +51,7 @@ impl Map {
         };
 
         if y < 0 {
-            warn!("Map indexed with negative y value");
+            warn!("Map indexed with negative y value ({})", y);
             return Block::Air;
         }
         let y_within_chunk = y % 16;
@@ -185,6 +185,7 @@ impl Map {
         match blocks.get_mut(idx) {
             Some(old_block) => {
                 *old_block = block_state_id;
+                // assert_eq!(Block::from_state_id(block_state_id).unwrap(), self.get_block(chunk_x as i32 * 16 + block_x as i32, chunk_y as i32 * 16 + block_y as i32, chunk_z as i32 * 16 + block_z as i32))
             }
             None => {
                 warn!("Block does not exist in this chunk section");
