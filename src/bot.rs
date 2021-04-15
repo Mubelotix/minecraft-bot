@@ -36,6 +36,7 @@ pub struct Bot {
     health: f32,
     food: u32,
     food_saturation: f32,
+    vertical_speed: f64,
 }
 
 impl Bot {
@@ -56,6 +57,7 @@ impl Bot {
             health: 11.0,
             food: 11,
             food_saturation: 0.0,
+            vertical_speed: 0.0
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -131,17 +133,28 @@ impl Bot {
     pub fn act(&mut self) -> Vec<ServerboundPacket> {
         let mut packets = Vec::new();
         if let Some(position) = self.position.as_mut() {
-            if !self.map.is_on_ground(position.x, position.y, position.z) {
-                position.y += self.map.max_fall(position.x, position.y, position.z);
+            if self.vertical_speed.abs() < 0.003 {
+                self.vertical_speed = 0.0;
+            }
+            if self.map.is_on_ground(position.x, position.y, position.z) {
+                self.vertical_speed = 0.0;
+                packets.push(ServerboundPacket::PlayerFulcrum { on_ground: true });
+            } else {
+                self.vertical_speed -= 0.08;
+                self.vertical_speed *= 0.98;
 
+                let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
+                if self.vertical_speed < max_negative_speed {
+                    self.vertical_speed = max_negative_speed;
+                }
+
+                position.y += self.vertical_speed;
                 packets.push(ServerboundPacket::PlayerPosition {
                     x: position.x,
                     y: position.y,
                     z: position.z,
                     on_ground: false,
                 });
-            } else {
-                packets.push(ServerboundPacket::PlayerFulcrum { on_ground: true });
             }
         }
 
@@ -193,6 +206,7 @@ impl Bot {
                     yaw,
                     pitch,
                 });
+                self.vertical_speed = 0.0;
                 warn!("Bot teleported at {:?}", self.position);
                 responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
                 responses.push(ServerboundPacket::PlayerPositionAndRotation {
@@ -228,6 +242,7 @@ impl Bot {
 
                 if health <= 0.0 {
                     info!("Bot died: respawning...");
+                    self.vertical_speed = 0.0;
                     responses.push(ServerboundPacket::ClientStatus {
                         action: minecraft_format::game_state::ClientStatus::PerformRespawn,
                     });
