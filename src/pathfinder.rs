@@ -1,7 +1,7 @@
 use crate::map::Map;
 use log::*;
 use minecraft_format::ids::blocks::Block;
-use std::{borrow::BorrowMut, collections::BTreeMap};
+use std::{collections::BTreeMap, cell::RefCell};
 
 #[derive(Debug)]
 pub struct Path {
@@ -21,13 +21,14 @@ impl Path {
         accessible_blocks: &mut AccessibleBlock,
         accesses: &mut Accesses,
     ) {
-        let accessible_blocks = std::cell::RefCell::new(accessible_blocks);
-        let accesses = std::cell::RefCell::new(accesses);
+        let accessible_blocks = RefCell::new(accessible_blocks);
+        let accesses = RefCell::new(accesses);
 
         let check_direct_neighbor = |x, z| -> bool {
-            // TODO Check for better distance
-            if accessible_blocks.borrow().contains_key(&(x, ay, z)) {
-                return true;
+            if let Some((_, previous_distance)) = accessible_blocks.borrow().get(&(x, ay, z)) {
+                if *previous_distance <= distance + 1 {
+                    return true;
+                }
             }
             if map.get_block(x, ay, z) == Block::Air && map.get_block(x, ay + 1, z) == Block::Air && map.get_block(x, ay - 1, z) != Block::Air {
                 accessible_blocks.borrow_mut().insert((x, ay, z), ((ax, ay, az), distance + 1));
@@ -38,9 +39,10 @@ impl Path {
         };
 
         let check_uphill_neighbor = |x, z| -> bool {
-            // TODO Check for better distance
-            if accessible_blocks.borrow().contains_key(&(x, ay + 1, z)) {
-                return true;
+            if let Some((_, previous_distance)) = accessible_blocks.borrow().get(&(x, ay + 1, z)) {
+                if *previous_distance <= distance + 1 {
+                    return true;
+                }
             }
             if map.get_block(x, ay + 1, z) == Block::Air
                 && map.get_block(x, ay + 2, z) == Block::Air
@@ -56,9 +58,10 @@ impl Path {
 
         let check_downhill_neighbors = |x, z| -> bool {
             'height: for offset in 1..=3 {
-                // TODO Check for better distance
-                if accessible_blocks.borrow().contains_key(&(x, ay - offset, z)) {
-                    return true;
+                if let Some((_, previous_distance)) = accessible_blocks.borrow().get(&(x, ay - offset, z)) {
+                    if *previous_distance <= distance + 1 {
+                        return true;
+                    }
                 }
                 for y in ay - offset..=ay + 1 {
                     if map.get_block(x, y, z) != Block::Air {
