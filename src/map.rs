@@ -287,10 +287,10 @@ impl Map {
             return 0.0;
         }
         if self.is_on_ground(x, y - 1.0, z) {
-            return y.floor() - y;
+            return -1.0 + (y.ceil() - y);
         }
         if self.is_on_ground(x, y - 2.0, z) {
-            return y.floor() - y - 1.0;
+            return -2.0 + (y.ceil() - y);
         }
 
         -2.0

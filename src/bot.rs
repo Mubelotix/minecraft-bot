@@ -154,6 +154,7 @@ impl Bot {
             }
 
             let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
+            trace!("{} {} {} {}", self.map.is_on_ground(position.x, position.y, position.z), max_negative_speed, self.vertical_speed, position.y);
             if self.vertical_speed < max_negative_speed {
                 self.vertical_speed = max_negative_speed;
             }
