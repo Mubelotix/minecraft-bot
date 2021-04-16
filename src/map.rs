@@ -42,7 +42,7 @@ impl Map {
         let chunk_column = match self.chunk_columns.get(&(chunk_x, chunk_z)) {
             Some(chunk_column) => chunk_column,
             None => {
-                warn!("The indexed block is not loaded");
+                warn!("The indexed block is not loaded (XYZ = {} {} {})", x, y, z);
                 return Block::Air;
             }
         };
@@ -124,6 +124,162 @@ impl Map {
         }
 
         false
+    }
+
+    pub fn can_move_west(&self, x: f64, y: f64, z: f64) -> bool {
+        let y_floor = y.floor();
+        let y1 = y_floor as i32;
+        let y2 = y1 + 1;
+        let y3 = if y - y_floor > 0.2 { Some(y2 + 1) } else { None };
+
+        let z_floor = z.floor();
+        let z1 = z_floor as i32;
+        let z2 = if z - z_floor > 0.7 {
+            Some(z1 + 1)
+        } else if z - z_floor < 0.3 {
+            Some(z1 - 1)
+        } else {
+            None
+        };
+
+        let x = x.floor() as i32 - 1;
+        if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
+            return false;
+        }
+        if let Some(y3) = y3 {
+            if self.get_block(x, y3, z1) != Block::Air {
+                return false;
+            }
+            if let Some(z2) = z2 {
+                if self.get_block(x, y3, z2) != Block::Air {
+                    return false;
+                }
+            }
+        }
+        if let Some(z2) = z2 {
+            if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn can_move_east(&self, x: f64, y: f64, z: f64) -> bool {
+        let y_floor = y.floor();
+        let y1 = y_floor as i32;
+        let y2 = y1 + 1;
+        let y3 = if y - y_floor > 0.2 { Some(y2 + 1) } else { None };
+
+        let z_floor = z.floor();
+        let z1 = z_floor as i32;
+        let z2 = if z - z_floor > 0.7 {
+            Some(z1 + 1)
+        } else if z - z_floor < 0.3 {
+            Some(z1 - 1)
+        } else {
+            None
+        };
+
+        let x = x.floor() as i32 + 1;
+        if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
+            return false;
+        }
+        if let Some(y3) = y3 {
+            if self.get_block(x, y3, z1) != Block::Air {
+                return false;
+            }
+            if let Some(z2) = z2 {
+                if self.get_block(x, y3, z2) != Block::Air {
+                    return false;
+                }
+            }
+        }
+        if let Some(z2) = z2 {
+            if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn can_move_south(&self, x: f64, y: f64, z: f64) -> bool {
+        let y_floor = y.floor();
+        let y1 = y_floor as i32;
+        let y2 = y1 + 1;
+        let y3 = if y - y_floor > 0.2 { Some(y2 + 1) } else { None };
+
+        let x_floor = x.floor();
+        let x1 = x_floor as i32;
+        let x2 = if x - x_floor > 0.7 {
+            Some(x1 + 1)
+        } else if x - x_floor < 0.3 {
+            Some(x1 - 1)
+        } else {
+            None
+        };
+
+        let z = z.floor() as i32 + 1;
+        if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
+            return false;
+        }
+        if let Some(y3) = y3 {
+            if self.get_block(x1, y3, z) != Block::Air {
+                return false;
+            }
+            if let Some(x2) = x2 {
+                if self.get_block(x2, y3, z) != Block::Air {
+                    return false;
+                }
+            }
+        }
+        if let Some(x2) = x2 {
+            if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn can_move_north(&self, x: f64, y: f64, z: f64) -> bool {
+        let y_floor = y.floor();
+        let y1 = y_floor as i32;
+        let y2 = y1 + 1;
+        let y3 = if y - y_floor > 0.2 { Some(y2 + 1) } else { None };
+
+        let x_floor = x.floor();
+        let x1 = x_floor as i32;
+        let x2 = if x - x_floor > 0.7 {
+            Some(x1 + 1)
+        } else if x - x_floor < 0.3 {
+            Some(x1 - 1)
+        } else {
+            None
+        };
+
+        let z = z.floor() as i32 - 1;
+        if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
+            return false;
+        }
+        if let Some(y3) = y3 {
+            if self.get_block(x1, y3, z) != Block::Air {
+                return false;
+            }
+            if let Some(x2) = x2 {
+                if self.get_block(x2, y3, z) != Block::Air {
+                    return false;
+                }
+            }
+        }
+        if let Some(x2) = x2 {
+            if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
+                return false;
+            }
+        }
+
+        true
     }
 
     pub fn max_fall(&self, x: f64, y: f64, z: f64) -> f64 {

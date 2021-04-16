@@ -1,8 +1,10 @@
 use crate::map::Map;
 use log::*;
 use minecraft_format::ids::blocks::Block;
-use std::{collections::BTreeMap, cell::RefCell};
+use std::{cell::RefCell, collections::BTreeMap, thread::current};
 
+// todo listen for block change and update path as the map is modified
+// todo consider some blocks as liquid and some as transparent
 #[derive(Debug)]
 pub struct Path {
     path: Vec<(i32, i32, i32)>,
@@ -119,14 +121,85 @@ impl Path {
         let mut path = Vec::new();
         let mut current = accessible_blocks.get(&destination)?;
         loop {
+            path.push(current.0);
             if current.0 == position {
                 break;
             }
-
-            path.push(current.0);
             current = accessible_blocks.get(&current.0).unwrap();
         }
+        path.reverse();
 
         Some(Path { path })
+    }
+
+    pub fn follow(&self, mut position: (f64, f64, f64), map: &Map) -> Option<((f64, f64), bool)> {
+        let x = position.0.floor() as i32;
+        let y = position.1.floor() as i32;
+        let z = position.2.floor() as i32;
+        let mut jump = false;
+
+        let mut current_idx = None;
+        for (idx, position) in self.path.iter().enumerate() {
+            // todo improve y check
+            if position.0 == x && position.2 == z {
+                current_idx = Some(idx)
+            }
+        }
+        let current_idx = match current_idx {
+            Some(current_idx) => current_idx,
+            None => {
+                warn!("Out of path. Current position {} {} {} not found", x, y, z);
+                return None;
+            }
+        };
+
+        let next_position = match self.path.get(current_idx + 1) {
+            Some(next_position) => *next_position,
+            None => {
+                warn!("Destination achieved! No path fragment after idx {}", current_idx + 1);
+                return None;
+            }
+        };
+
+        if next_position.1 > y && map.is_on_ground(position.0, position.1, position.2) {
+            jump = true;
+        }
+        match (next_position.0 as f64 + 0.5).partial_cmp(&position.0) {
+            Some(std::cmp::Ordering::Less) => {
+                if map.can_move_west(position.0, position.1, position.2) {
+                    position.0 -= 0.2;
+                } else {
+                    trace!("cannot move west");
+                }
+            }
+            Some(std::cmp::Ordering::Greater) => {
+                if map.can_move_east(position.0, position.1, position.2) {
+                    position.0 += 0.2;
+                } else {
+                    trace!("cannot move east");
+                }
+            }
+            _ => {}
+        }
+        match (next_position.2 as f64 + 0.5).partial_cmp(&position.2) {
+            Some(std::cmp::Ordering::Less) => {
+                if map.can_move_north(position.0, position.1, position.2) {
+                    position.2 -= 0.2;
+                } else {
+                    trace!("cannot move north");
+                }
+            }
+            Some(std::cmp::Ordering::Greater) => {
+                if map.can_move_south(position.0, position.1, position.2) {
+                    position.2 += 0.2;
+                } else {
+                    trace!("cannot move south");
+                }
+            }
+            _ => {}
+        }
+        
+
+        Some(((position.0, position.2), jump))
     }
 }

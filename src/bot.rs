@@ -1,4 +1,4 @@
-use crate::{map::Map, network::connect};
+use crate::{map::Map, network::connect, pathfinder::Path};
 use log::*;
 use minecraft_format::{
     blocks::MultiBlockChange,
@@ -37,6 +37,7 @@ pub struct Bot {
     food: u32,
     food_saturation: f32,
     vertical_speed: f64,
+    path: Option<Path>,
 }
 
 impl Bot {
@@ -58,6 +59,7 @@ impl Bot {
             food: 11,
             food_saturation: 0.0,
             vertical_speed: 0.0,
+            path: None,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -136,24 +138,32 @@ impl Bot {
             }
             if self.map.is_on_ground(position.x, position.y, position.z) {
                 self.vertical_speed = 0.0;
-                packets.push(ServerboundPacket::PlayerFulcrum { on_ground: true });
             } else {
                 self.vertical_speed -= 0.08;
                 self.vertical_speed *= 0.98;
-
-                let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
-                if self.vertical_speed < max_negative_speed {
-                    self.vertical_speed = max_negative_speed;
-                }
-
-                position.y += self.vertical_speed;
-                packets.push(ServerboundPacket::PlayerPosition {
-                    x: position.x,
-                    y: position.y,
-                    z: position.z,
-                    on_ground: false,
-                });
             }
+
+            if let Some(path) = &self.path {
+                if let Some(((x, z), jump)) = path.follow((position.x, position.y, position.z), &self.map) {
+                    position.x = x;
+                    position.z = z;
+                    if jump {
+                        self.vertical_speed = 0.4;
+                    }
+                }
+            }
+
+            let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
+            if self.vertical_speed < max_negative_speed {
+                self.vertical_speed = max_negative_speed;
+            }
+            position.y += self.vertical_speed;
+            packets.push(ServerboundPacket::PlayerPosition {
+                x: position.x,
+                y: position.y,
+                z: position.z,
+                on_ground: self.map.is_on_ground(position.x, position.y, position.z),
+            });
         }
 
         packets
@@ -266,10 +276,12 @@ impl Bot {
             ClientboundPacket::ChatMessage { message, position, sender } => {
                 if message.contains("test_path") {
                     let position = self.position.as_ref().unwrap();
-                    let result = self
-                        .map
-                        .find_path((position.x as i32, position.y as i32, position.z as i32), (-95, 89, 91));
+                    let result = self.map.find_path(
+                        (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32),
+                        (-95, 89, 91),
+                    );
                     debug!("path: {:?}", result);
+                    self.path = result;
                 }
             }
             _ => (),
