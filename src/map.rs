@@ -131,10 +131,10 @@ impl Map {
             return 0.0;
         }
         if self.is_on_ground(x, y - 1.0, z) {
-            return (y - 0.01).floor() - (y - 0.01);
+            return y.floor() - y;
         }
         if self.is_on_ground(x, y - 2.0, z) {
-            return (y - 0.01).floor() - (y - 0.01) - 1.0;
+            return y.floor() - y - 1.0;
         }
 
         -2.0
