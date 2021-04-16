@@ -110,17 +110,17 @@ impl Map {
             return true;
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y, z1) != Block::Air {
+            if self.get_block(x2, y, z1) != Block::Air && self.get_block(x2, y+1, z1) == Block::Air && self.get_block(x2, y+2, z1) == Block::Air {
                 return true;
             }
             if let Some(z2) = z2 {
-                if self.get_block(x2, y, z2) != Block::Air {
+                if self.get_block(x2, y, z2) != Block::Air && self.get_block(x2, y+1, z2) == Block::Air && self.get_block(x2, y+2, z2) == Block::Air {
                     return true;
                 }
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x1, y, z2) != Block::Air {
+            if self.get_block(x1, y, z2) != Block::Air && self.get_block(x1, y+1, z2) == Block::Air && self.get_block(x1, y+2, z2) == Block::Air {
                 return true;
             }
         }
