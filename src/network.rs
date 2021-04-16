@@ -16,11 +16,7 @@ fn send_packets(hidden_receiver: mpsc::Receiver<Vec<u8>>, stream: TcpStream) {
     }
 }
 
-pub fn connect(
-    addr: &str,
-    port: u16,
-    username: &str,
-) -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
+pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>>, mpsc::Sender<Vec<u8>>) {
     let mut stream = TcpStream::connect(format!("{}:{}", addr, port)).unwrap();
     send_packet(
         &mut stream,
@@ -48,11 +44,7 @@ pub fn connect(
     .unwrap();
 
     let mut response = read_packet(&stream, None, None).unwrap();
-    let response_packet =
-        minecraft_format::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(
-            &mut response,
-        )
-        .unwrap();
+    let response_packet = minecraft_format::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&mut response).unwrap();
     assert!(matches!(
         response_packet,
         minecraft_format::packets::login::ClientboundPacket::LoginSuccess { .. }

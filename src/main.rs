@@ -2,8 +2,8 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod bot;
-pub mod network;
 pub mod map;
+pub mod network;
 pub mod pathfinder;
 use bot::Bot;
 

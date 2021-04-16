@@ -1,5 +1,5 @@
-use log::*;
 use crate::pathfinder::Path;
+use log::*;
 use minecraft_format::{
     chunk::{ChunkData, ChunkSection},
     ids::blocks::Block,
@@ -21,15 +21,11 @@ impl Map {
         let chunk_sections = match chunk_data.deserialize_chunk_sections() {
             Ok(chunk_sections) => chunk_sections,
             Err(e) => {
-                error!(
-                    "Failed to parse chunk sections at {} {}: {}.",
-                    chunk_data.chunk_x, chunk_data.chunk_z, e
-                );
+                error!("Failed to parse chunk sections at {} {}: {}.", chunk_data.chunk_x, chunk_data.chunk_z, e);
                 return;
             }
         };
-        self.chunk_columns
-            .insert((chunk_data.chunk_x, chunk_data.chunk_z), chunk_sections);
+        self.chunk_columns.insert((chunk_data.chunk_x, chunk_data.chunk_z), chunk_sections);
         trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_z);
     }
 
@@ -66,14 +62,12 @@ impl Map {
             }
         };
 
-        let block_state_id = match chunk_section
-            .get((y_within_chunk * 16 * 16 + z_within_chunk * 16 + x_within_chunk) as usize)
-        {
+        let block_state_id = match chunk_section.get((y_within_chunk * 16 * 16 + z_within_chunk * 16 + x_within_chunk) as usize) {
             Some(block_state) => block_state,
             None => {
                 warn!("Missing block in the block array");
-                return Block::Air
-            },
+                return Block::Air;
+            }
         };
 
         match Block::from_state_id(*block_state_id) {
@@ -111,17 +105,20 @@ impl Map {
             return true;
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y, z1) != Block::Air && self.get_block(x2, y+1, z1) == Block::Air && self.get_block(x2, y+2, z1) == Block::Air {
+            if self.get_block(x2, y, z1) != Block::Air && self.get_block(x2, y + 1, z1) == Block::Air && self.get_block(x2, y + 2, z1) == Block::Air {
                 return true;
             }
             if let Some(z2) = z2 {
-                if self.get_block(x2, y, z2) != Block::Air && self.get_block(x2, y+1, z2) == Block::Air && self.get_block(x2, y+2, z2) == Block::Air {
+                if self.get_block(x2, y, z2) != Block::Air
+                    && self.get_block(x2, y + 1, z2) == Block::Air
+                    && self.get_block(x2, y + 2, z2) == Block::Air
+                {
                     return true;
                 }
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x1, y, z2) != Block::Air && self.get_block(x1, y+1, z2) == Block::Air && self.get_block(x1, y+2, z2) == Block::Air {
+            if self.get_block(x1, y, z2) != Block::Air && self.get_block(x1, y + 1, z2) == Block::Air && self.get_block(x1, y + 2, z2) == Block::Air {
                 return true;
             }
         }
@@ -142,17 +139,8 @@ impl Map {
 
         -2.0
     }
-    
-    pub fn set_block_state(
-        &mut self,
-        chunk_x: i32,
-        chunk_y: i32,
-        chunk_z: i32,
-        block_x: u8,
-        block_y: u8,
-        block_z: u8,
-        block_state_id: u32,
-    ) {
+
+    pub fn set_block_state(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block_state_id: u32) {
         let chunk_column = match self.chunk_columns.get_mut(&(chunk_x, chunk_z)) {
             Some(chunk_column) => chunk_column,
             None => {
@@ -170,15 +158,13 @@ impl Map {
         };
 
         let (blocks, palette) = match chunk_section {
-            Some(chunk_section) => {
-                (&mut chunk_section.blocks, &mut chunk_section.palette)
-            },
+            Some(chunk_section) => (&mut chunk_section.blocks, &mut chunk_section.palette),
             None => {
                 trace!("Block set in inexistant chunk section: creating a new chunk section");
                 *chunk_section = Some(ChunkSection {
                     block_count: 0,
                     palette: Some(vec![0]),
-                    blocks: vec![0; 16*16*16],
+                    blocks: vec![0; 16 * 16 * 16],
                 });
                 let chunk_section = chunk_section.as_mut().unwrap();
                 (&mut chunk_section.blocks, &mut chunk_section.palette)
@@ -203,16 +189,7 @@ impl Map {
         }
     }
 
-    pub fn set_block(
-        &mut self,
-        chunk_x: i32,
-        chunk_y: i32,
-        chunk_z: i32,
-        block_x: u8,
-        block_y: u8,
-        block_z: u8,
-        block: Block,
-    ) {
+    pub fn set_block(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block: Block) {
         let block_state_id = block.get_default_state_id();
         self.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block_state_id)
     }

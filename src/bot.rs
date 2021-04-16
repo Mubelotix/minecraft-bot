@@ -57,7 +57,7 @@ impl Bot {
             health: 11.0,
             food: 11,
             food_saturation: 0.0,
-            vertical_speed: 0.0
+            vertical_speed: 0.0,
         }));
         let bot2 = Arc::clone(&bot);
         let sender2 = sender.clone();
@@ -82,16 +82,10 @@ impl Bot {
 
         std::thread::spawn(move || loop {
             let mut packet_bytes = receiver.recv().unwrap();
-            let packet = match ClientboundPacket::deserialize_uncompressed_minecraft_packet(
-                packet_bytes.as_mut_slice(),
-            ) {
+            let packet = match ClientboundPacket::deserialize_uncompressed_minecraft_packet(packet_bytes.as_mut_slice()) {
                 Ok(packet) => packet,
                 Err(e) => {
-                    log::error!(
-                        "Failed to parse clientbound packet: {:?}. In {:?}",
-                        e,
-                        packet_bytes
-                    );
+                    log::error!("Failed to parse clientbound packet: {:?}. In {:?}", e, packet_bytes);
                     continue;
                 }
             };
@@ -126,7 +120,11 @@ impl Bot {
                 }
             }
             let elapsed_time = Instant::now() - start_time;
-            std::thread::sleep(std::time::Duration::from_millis(50).checked_sub(elapsed_time).unwrap_or_else(|| std::time::Duration::from_millis(0)));
+            std::thread::sleep(
+                std::time::Duration::from_millis(50)
+                    .checked_sub(elapsed_time)
+                    .unwrap_or_else(|| std::time::Duration::from_millis(0)),
+            );
         }
     }
 
@@ -199,13 +197,7 @@ impl Bot {
                         yaw = old_position.yaw;
                     }
                 };
-                self.position = Some(PlayerPosition {
-                    x,
-                    y,
-                    z,
-                    yaw,
-                    pitch,
-                });
+                self.position = Some(PlayerPosition { x, y, z, yaw, pitch });
                 self.vertical_speed = 0.0;
                 warn!("Bot teleported at {:?}", self.position);
                 responses.push(ServerboundPacket::TeleportConfirm { teleport_id });
@@ -222,11 +214,7 @@ impl Bot {
                 debug!("Spawn position set to {:?}", location);
                 self.spawn_position = Some(location);
             }
-            ClientboundPacket::JoinGame {
-                player_id,
-                world_name,
-                ..
-            } => {
+            ClientboundPacket::JoinGame { player_id, world_name, .. } => {
                 info!("Joined a world! ({})", world_name);
                 self.self_entity_id = Some(player_id);
                 self.world_name = Some(world_name.to_string());
@@ -256,20 +244,14 @@ impl Bot {
                         blocks,
                     },
             } => {
-                let (chunk_x, chunk_y, chunk_z) =
-                    MultiBlockChange::decode_chunk_section_position(chunk_section_position);
+                let (chunk_x, chunk_y, chunk_z) = MultiBlockChange::decode_chunk_section_position(chunk_section_position);
                 trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
                 for block in blocks.items {
-                    let (block, block_x, block_y, block_z) =
-                        MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
-                    self.map
-                        .set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
+                    let (block, block_x, block_y, block_z) = MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
+                    self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
                 }
             }
-            ClientboundPacket::BlockChange {
-                location,
-                block_state,
-            } => {
+            ClientboundPacket::BlockChange { location, block_state } => {
                 let chunk_x = location.x.div_euclid(16);
                 let chunk_y = location.y.div_euclid(16) as i32;
                 let chunk_z = location.z.div_euclid(16);
@@ -277,12 +259,16 @@ impl Bot {
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
                 trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
-                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {std::mem::transmute(block_state.0)});
+                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
+                    std::mem::transmute(block_state.0)
+                });
             }
             ClientboundPacket::ChatMessage { message, position, sender } => {
                 if message.contains("test_path") {
                     let position = self.position.as_ref().unwrap();
-                    let result = self.map.find_path((position.x as i32, position.y as i32, position.z as i32), (-95, 89, 91));
+                    let result = self
+                        .map
+                        .find_path((position.x as i32, position.y as i32, position.z as i32), (-95, 89, 91));
                     debug!("path: {:?}", result);
                 }
             }
