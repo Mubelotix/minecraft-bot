@@ -169,18 +169,27 @@ impl Map {
             }
         };
 
-        let blocks = match chunk_section {
-            Some(chunk_section) => &mut chunk_section.blocks,
+        let (blocks, palette) = match chunk_section {
+            Some(chunk_section) => {
+                (&mut chunk_section.blocks, &mut chunk_section.palette)
+            },
             None => {
                 trace!("Block set in inexistant chunk section: creating a new chunk section");
                 *chunk_section = Some(ChunkSection {
                     block_count: 0,
-                    palette: None,
+                    palette: Some(vec![0]),
                     blocks: vec![0; 16*16*16],
                 });
-                &mut chunk_section.as_mut().unwrap().blocks
+                let chunk_section = chunk_section.as_mut().unwrap();
+                (&mut chunk_section.blocks, &mut chunk_section.palette)
             }
         };
+
+        if let Some(palette) = palette {
+            if !palette.contains(&block_state_id) {
+                palette.push(block_state_id)
+            }
+        }
 
         let idx = block_y as usize * 16 * 16 + block_z as usize * 16 + block_x as usize;
         match blocks.get_mut(idx) {
