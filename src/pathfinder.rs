@@ -140,8 +140,7 @@ impl Path {
 
         let mut current_idx = None;
         for (idx, position) in self.path.iter().enumerate() {
-            // todo improve y check
-            if position.0 == x && position.2 == z {
+            if position.0 == x && position.2 == z && (y-2..=y).contains(&position.1) {
                 current_idx = Some(idx)
             }
         }
