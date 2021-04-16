@@ -4,6 +4,7 @@
 pub mod bot;
 pub mod network;
 pub mod map;
+pub mod pathfinder;
 use bot::Bot;
 
 fn main() {

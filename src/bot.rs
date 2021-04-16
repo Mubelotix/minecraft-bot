@@ -126,7 +126,7 @@ impl Bot {
                 }
             }
             let elapsed_time = Instant::now() - start_time;
-            std::thread::sleep(std::time::Duration::from_millis(50) - elapsed_time);
+            std::thread::sleep(std::time::Duration::from_millis(50).checked_sub(elapsed_time).unwrap_or_else(|| std::time::Duration::from_millis(0)));
         }
     }
 
@@ -278,6 +278,13 @@ impl Bot {
                 let block_z = location.z.rem_euclid(16) as u8;
                 trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
                 self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {std::mem::transmute(block_state.0)});
+            }
+            ClientboundPacket::ChatMessage { message, position, sender } => {
+                if message.contains("test_path") {
+                    let position = self.position.as_ref().unwrap();
+                    let result = self.map.find_path((position.x as i32, position.y as i32, position.z as i32), (-95, 89, 91));
+                    debug!("path: {:?}", result);
+                }
             }
             _ => (),
         }

@@ -1,4 +1,5 @@
 use log::*;
+use crate::pathfinder::Path;
 use minecraft_format::{
     chunk::{ChunkData, ChunkSection},
     ids::blocks::Block,
@@ -205,5 +206,9 @@ impl Map {
     ) {
         let block_state_id = block.get_default_state_id();
         self.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block_state_id)
+    }
+
+    pub fn find_path(&self, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Path> {
+        Path::find_path(self, position, destination)
     }
 }
