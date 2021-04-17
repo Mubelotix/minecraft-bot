@@ -106,8 +106,8 @@ impl Path {
                 break;
             }
 
-            if counter % 40 == 0 {
-                accesses.sort_by_key(|(_, dis)| -(*dis as i32));
+            if counter % 20 == 0 {
+                accesses.sort_by_key(|((x, y, z), dis)| -(*dis as i32 * 2) - ((x-destination.0).pow(2) as f64 + (y-destination.1).pow(2) as f64 + (z-destination.2).pow(2) as f64).sqrt() as i32);
             }
             counter += 1;
         }

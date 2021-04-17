@@ -154,7 +154,7 @@ impl Bot {
             }
 
             let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
-            trace!("{} {} {} {}", self.map.is_on_ground(position.x, position.y, position.z), max_negative_speed, self.vertical_speed, position.y);
+            //trace!("{} {} {} {}", self.map.is_on_ground(position.x, position.y, position.z), max_negative_speed, self.vertical_speed, position.y);
             if self.vertical_speed < max_negative_speed {
                 self.vertical_speed = max_negative_speed;
             }
@@ -279,7 +279,7 @@ impl Bot {
                     let position = self.position.as_ref().unwrap();
                     let result = self.map.find_path(
                         (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32),
-                        (-95, 89, 91),
+                        (-77, 89, 88),
                     );
                     debug!("path: {:?}", result);
                     self.path = result;
