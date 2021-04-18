@@ -126,7 +126,7 @@ impl Map {
         false
     }
 
-    pub fn can_move_west(&self, x: f64, y: f64, z: f64) -> bool {
+    pub fn max_west_movement(&self, x: f64, y: f64, z: f64) -> f64 {
         let y_floor = y.floor();
         let y1 = y_floor as i32;
         let y2 = y1 + 1;
@@ -142,30 +142,32 @@ impl Map {
             None
         };
 
-        let x = x.floor() as i32 - 1;
+        let ax = x;
+        let bx = x.floor();
+        let x = bx as i32 - 1;
         if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
-            return false;
+            return ax - bx - 0.3;
         }
         if let Some(y3) = y3 {
             if self.get_block(x, y3, z1) != Block::Air {
-                return false;
+                return ax - bx - 0.3;
             }
             if let Some(z2) = z2 {
                 if self.get_block(x, y3, z2) != Block::Air {
-                    return false;
+                    return ax - bx - 0.3;
                 }
             }
         }
         if let Some(z2) = z2 {
             if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
-                return false;
+                return ax - bx - 0.3;
             }
         }
 
-        true
+        0.2
     }
 
-    pub fn can_move_east(&self, x: f64, y: f64, z: f64) -> bool {
+    pub fn max_east_movement(&self, x: f64, y: f64, z: f64) -> f64 {
         let y_floor = y.floor();
         let y1 = y_floor as i32;
         let y2 = y1 + 1;
@@ -181,30 +183,33 @@ impl Map {
             None
         };
 
-        let x = x.floor() as i32 + 1;
+
+        let ax = x;
+        let bx = x.floor() + 1.0;
+        let x = bx as i32;
         if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
-            return false;
+            return bx - ax - 0.3;
         }
         if let Some(y3) = y3 {
             if self.get_block(x, y3, z1) != Block::Air {
-                return false;
+                return bx - ax - 0.3;
             }
             if let Some(z2) = z2 {
                 if self.get_block(x, y3, z2) != Block::Air {
-                    return false;
+                    return bx - ax - 0.3;
                 }
             }
         }
         if let Some(z2) = z2 {
             if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
-                return false;
+                return bx - ax - 0.3;
             }
         }
 
-        true
+        0.2
     }
 
-    pub fn can_move_south(&self, x: f64, y: f64, z: f64) -> bool {
+    pub fn max_south_movement(&self, x: f64, y: f64, z: f64) -> f64 {
         let y_floor = y.floor();
         let y1 = y_floor as i32;
         let y2 = y1 + 1;
@@ -220,30 +225,32 @@ impl Map {
             None
         };
 
-        let z = z.floor() as i32 + 1;
+        let az = z;
+        let bz = z.floor() + 1.0;
+        let z = bz as i32;
         if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
-            return false;
+            return bz - az - 0.3;
         }
         if let Some(y3) = y3 {
             if self.get_block(x1, y3, z) != Block::Air {
-                return false;
+                return bz - az - 0.3;
             }
             if let Some(x2) = x2 {
                 if self.get_block(x2, y3, z) != Block::Air {
-                    return false;
+                    return bz - az - 0.3;
                 }
             }
         }
         if let Some(x2) = x2 {
             if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
-                return false;
+                return bz - az - 0.3;
             }
         }
 
-        true
+        0.2
     }
 
-    pub fn can_move_north(&self, x: f64, y: f64, z: f64) -> bool {
+    pub fn max_north_movement(&self, x: f64, y: f64, z: f64) -> f64 {
         let y_floor = y.floor();
         let y1 = y_floor as i32;
         let y2 = y1 + 1;
@@ -259,27 +266,29 @@ impl Map {
             None
         };
 
-        let z = z.floor() as i32 - 1;
+        let az = z;
+        let bz = z.floor();
+        let z = bz as i32 - 1;
         if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
-            return false;
+            return az - bz - 0.3;
         }
         if let Some(y3) = y3 {
             if self.get_block(x1, y3, z) != Block::Air {
-                return false;
+                return az - bz - 0.3;
             }
             if let Some(x2) = x2 {
                 if self.get_block(x2, y3, z) != Block::Air {
-                    return false;
+                    return az - bz - 0.3;
                 }
             }
         }
         if let Some(x2) = x2 {
             if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
-                return false;
+                return az - bz - 0.3;
             }
         }
 
-        true
+        0.2
     }
 
     pub fn max_fall(&self, x: f64, y: f64, z: f64) -> f64 {

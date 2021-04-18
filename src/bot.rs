@@ -143,7 +143,7 @@ impl Bot {
                 self.vertical_speed *= 0.98;
             }
 
-            if let Some(path) = &self.path {
+            if let Some(path) = self.path.as_mut() {
                 if let Some(((x, z), jump)) = path.follow((position.x, position.y, position.z), &self.map) {
                     position.x = x;
                     position.z = z;
@@ -283,6 +283,9 @@ impl Bot {
                     );
                     debug!("path: {:?}", result);
                     self.path = result;
+                } else if message.contains("test_naive_path") {
+                    let position = self.position.as_ref().unwrap();
+                    self.path = Some(Path::new_naive(&self.map, (5000, 80, 100), (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32)));
                 }
             }
             _ => (),
