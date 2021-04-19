@@ -1,10 +1,6 @@
-use std::{collections::BTreeMap, sync::mpsc::Sender};
-
+use std::collections::BTreeMap;
 use log::*;
-use minecraft_format::{
-    packets::Array,
-    slots::{Slot, SlotItem},
-};
+use minecraft_format::{packets::Array, slots::Slot};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Item {
@@ -109,16 +105,14 @@ pub struct Windows {
     pub player_inventory: PlayerInventory,
     pub cursor: Option<Item>,
     pub windows: BTreeMap<i8, Window>,
-    sender: Sender<Vec<u8>>,
 }
 
 impl Windows {
-    pub fn new(sender: Sender<Vec<u8>>) -> Self {
+    pub fn new() -> Self {
         Windows {
             player_inventory: PlayerInventory { slots: [None; 46] },
             cursor: None,
             windows: BTreeMap::new(),
-            sender,
         }
     }
 

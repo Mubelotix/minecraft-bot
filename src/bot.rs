@@ -1,44 +1,45 @@
-use crate::{map::Map, network::connect, pathfinder::Path, inventory::Windows};
+use crate::{
+    inventory::Windows,
+    map::Map,
+    missions::{dig_down::DigDownMission, travel::TravelMission, Mission},
+    network::connect,
+};
 use log::*;
 use minecraft_format::{
     blocks::MultiBlockChange,
     chat::ChatMode,
-    ids::blocks::Block,
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position},
     slots::MainHand,
     MinecraftPacketPart,
 };
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::{
-    ops::Mul,
-    sync::{Arc, Mutex},
-};
 
 #[derive(Debug)]
-struct PlayerPosition {
-    x: f64,
-    y: f64,
-    z: f64,
-    yaw: f32,
-    pitch: f32,
+pub struct PlayerPosition {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
 }
 
 pub struct Bot {
-    username: String,
-    addr: String,
-    port: u16,
-    map: Map,
-    self_entity_id: Option<i32>,
-    position: Option<PlayerPosition>,
-    spawn_position: Option<Position>,
-    world_name: Option<String>,
-    windows: Windows,
+    pub username: String,
+    pub addr: String,
+    pub port: u16,
+    pub map: Map,
+    pub self_entity_id: Option<i32>,
+    pub position: Option<PlayerPosition>,
+    pub spawn_position: Option<Position>,
+    pub world_name: Option<String>,
+    pub windows: Windows,
 
-    health: f32,
-    food: u32,
-    food_saturation: f32,
-    vertical_speed: f64,
-    path: Option<Path>,
+    pub health: f32,
+    pub food: u32,
+    pub food_saturation: f32,
+    pub vertical_speed: f64,
+    pub mission: Mission,
 }
 
 impl Bot {
@@ -47,7 +48,6 @@ impl Bot {
         let (receiver, sender) = connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
         let sender2 = sender.clone();
-        let sender3 = sender.clone();
 
         let bot = Arc::new(Mutex::new(Bot {
             username,
@@ -58,13 +58,13 @@ impl Bot {
             spawn_position: None,
             self_entity_id: None,
             world_name: None,
-            windows: Windows::new(sender3),
+            windows: Windows::new(),
+            mission: Mission::None,
 
             health: 11.0,
             food: 11,
             food_saturation: 0.0,
             vertical_speed: 0.0,
-            path: None,
         }));
         let bot2 = Arc::clone(&bot);
 
@@ -146,17 +146,13 @@ impl Bot {
                 self.vertical_speed -= 0.08;
                 self.vertical_speed *= 0.98;
             }
+        }
 
-            if let Some(path) = self.path.as_mut() {
-                if let Some(((x, z), jump)) = path.follow((position.x, position.y, position.z), &self.map) {
-                    position.x = x;
-                    position.z = z;
-                    if jump {
-                        self.vertical_speed = 0.4;
-                    }
-                }
-            }
+        // TODO, replace path with mission
 
+        Mission::apply(self, &mut packets);
+
+        if let Some(position) = self.position.as_mut() {
             let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
             //trace!("{} {} {} {}", self.map.is_on_ground(position.x, position.y, position.z), max_negative_speed, self.vertical_speed, position.y);
             if self.vertical_speed < max_negative_speed {
@@ -278,27 +274,32 @@ impl Bot {
                     std::mem::transmute(block_state.0)
                 });
             }
-            ClientboundPacket::ChatMessage { message, position, sender } => {
-                if message.contains("test_path") {
+            ClientboundPacket::ChatMessage { message, position: _, sender: _ } => {
+                if message.contains("test path") {
                     let position = self.position.as_ref().unwrap();
-                    let result = self.map.find_path(
-                        (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32),
-                        (-77, 89, 88),
-                    );
-                    debug!("path: {:?}", result);
-                    self.path = result;
-                } else if message.contains("test_naive_path") {
-                    let position = self.position.as_ref().unwrap();
-                    self.path = Some(Path::new_naive(&self.map, (5000, 80, 100), (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32)));
+                    let position = (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32);
+                    if let Some(travel_mission) = TravelMission::new((-77, 89, 88), &self.map, position) {
+                        self.mission = Mission::Travel(travel_mission);
+                    }
+                } else if message.contains("dig down") {
+                    self.mission = Mission::DigDown(DigDownMission::new(12));
                 }
             }
-            ClientboundPacket::OpenWindow { window_id, window_type, window_title: _ } => {
+            ClientboundPacket::OpenWindow {
+                window_id,
+                window_type,
+                window_title: _,
+            } => {
                 self.windows.handle_open_window_packet(window_id.0, window_type.0);
             }
             ClientboundPacket::WindowItems { window_id, slots } => {
                 self.windows.handle_update_window_items_packet(window_id, slots);
             }
-            ClientboundPacket::SetSlot { window_id, slot_index, slot_value } => {
+            ClientboundPacket::SetSlot {
+                window_id,
+                slot_index,
+                slot_value,
+            } => {
                 self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
             }
             ClientboundPacket::CloseWindow { window_id } => {

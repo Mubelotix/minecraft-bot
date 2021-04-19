@@ -6,6 +6,7 @@ pub mod map;
 pub mod network;
 pub mod pathfinder;
 pub mod inventory;
+pub mod missions;
 use bot::Bot;
 
 fn main() {
