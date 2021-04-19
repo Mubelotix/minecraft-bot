@@ -101,24 +101,24 @@ impl Map {
         };
 
         let y = (y - 0.01).floor() as i32;
-        if self.get_block(x1, y, z1) != Block::Air {
+        if self.get_block(x1, y, z1).is_blocking() {
             return true;
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y, z1) != Block::Air && self.get_block(x2, y + 1, z1) == Block::Air && self.get_block(x2, y + 2, z1) == Block::Air {
+            if self.get_block(x2, y, z1).is_blocking() && self.get_block(x2, y + 1, z1).is_air_block() && self.get_block(x2, y + 2, z1).is_air_block() {
                 return true;
             }
             if let Some(z2) = z2 {
-                if self.get_block(x2, y, z2) != Block::Air
-                    && self.get_block(x2, y + 1, z2) == Block::Air
-                    && self.get_block(x2, y + 2, z2) == Block::Air
+                if self.get_block(x2, y, z2).is_blocking()
+                    && self.get_block(x2, y + 1, z2).is_air_block()
+                    && self.get_block(x2, y + 2, z2).is_air_block()
                 {
                     return true;
                 }
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x1, y, z2) != Block::Air && self.get_block(x1, y + 1, z2) == Block::Air && self.get_block(x1, y + 2, z2) == Block::Air {
+            if self.get_block(x1, y, z2).is_blocking() && self.get_block(x1, y + 1, z2).is_air_block() && self.get_block(x1, y + 2, z2).is_air_block() {
                 return true;
             }
         }
@@ -145,21 +145,21 @@ impl Map {
         let ax = x;
         let bx = x.floor();
         let x = bx as i32 - 1;
-        if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
+        if self.get_block(x, y1, z1).is_blocking() || self.get_block(x, y2, z1).is_blocking() {
             return ax - bx - 0.3;
         }
         if let Some(y3) = y3 {
-            if self.get_block(x, y3, z1) != Block::Air {
+            if self.get_block(x, y3, z1).is_blocking() {
                 return ax - bx - 0.3;
             }
             if let Some(z2) = z2 {
-                if self.get_block(x, y3, z2) != Block::Air {
+                if self.get_block(x, y3, z2).is_blocking() {
                     return ax - bx - 0.3;
                 }
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
+            if self.get_block(x, y1, z2).is_blocking() || self.get_block(x, y2, z2).is_blocking() {
                 return ax - bx - 0.3;
             }
         }
@@ -187,21 +187,21 @@ impl Map {
         let ax = x;
         let bx = x.floor() + 1.0;
         let x = bx as i32;
-        if self.get_block(x, y1, z1) != Block::Air || self.get_block(x, y2, z1) != Block::Air {
+        if self.get_block(x, y1, z1).is_blocking() || self.get_block(x, y2, z1).is_blocking() {
             return bx - ax - 0.3;
         }
         if let Some(y3) = y3 {
-            if self.get_block(x, y3, z1) != Block::Air {
+            if self.get_block(x, y3, z1).is_blocking() {
                 return bx - ax - 0.3;
             }
             if let Some(z2) = z2 {
-                if self.get_block(x, y3, z2) != Block::Air {
+                if self.get_block(x, y3, z2).is_blocking() {
                     return bx - ax - 0.3;
                 }
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x, y1, z2) != Block::Air || self.get_block(x, y2, z2) != Block::Air {
+            if self.get_block(x, y1, z2).is_blocking() || self.get_block(x, y2, z2).is_blocking() {
                 return bx - ax - 0.3;
             }
         }
@@ -228,21 +228,21 @@ impl Map {
         let az = z;
         let bz = z.floor() + 1.0;
         let z = bz as i32;
-        if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
+        if self.get_block(x1, y1, z).is_blocking() || self.get_block(x1, y2, z).is_blocking() {
             return bz - az - 0.3;
         }
         if let Some(y3) = y3 {
-            if self.get_block(x1, y3, z) != Block::Air {
+            if self.get_block(x1, y3, z).is_blocking() {
                 return bz - az - 0.3;
             }
             if let Some(x2) = x2 {
-                if self.get_block(x2, y3, z) != Block::Air {
+                if self.get_block(x2, y3, z).is_blocking() {
                     return bz - az - 0.3;
                 }
             }
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
+            if self.get_block(x2, y1, z).is_blocking() || self.get_block(x2, y2, z).is_blocking() {
                 return bz - az - 0.3;
             }
         }
@@ -269,21 +269,21 @@ impl Map {
         let az = z;
         let bz = z.floor();
         let z = bz as i32 - 1;
-        if self.get_block(x1, y1, z) != Block::Air || self.get_block(x1, y2, z) != Block::Air {
+        if self.get_block(x1, y1, z).is_blocking() || self.get_block(x1, y2, z).is_blocking() {
             return az - bz - 0.3;
         }
         if let Some(y3) = y3 {
-            if self.get_block(x1, y3, z) != Block::Air {
+            if self.get_block(x1, y3, z).is_blocking() {
                 return az - bz - 0.3;
             }
             if let Some(x2) = x2 {
-                if self.get_block(x2, y3, z) != Block::Air {
+                if self.get_block(x2, y3, z).is_blocking() {
                     return az - bz - 0.3;
                 }
             }
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y1, z) != Block::Air || self.get_block(x2, y2, z) != Block::Air {
+            if self.get_block(x2, y1, z).is_blocking() || self.get_block(x2, y2, z).is_blocking() {
                 return az - bz - 0.3;
             }
         }

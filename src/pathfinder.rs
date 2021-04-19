@@ -16,21 +16,21 @@ type AccessibleBlock = BTreeMap<(i32, i32, i32), ((i32, i32, i32), usize)>;
 
 impl Path {
     pub fn check_direct_neighbor(map: &Map, x: i32, ay: i32, z: i32) -> bool {
-        map.get_block(x, ay, z) == Block::Air && map.get_block(x, ay + 1, z) == Block::Air && map.get_block(x, ay - 1, z) != Block::Air
+        map.get_block(x, ay, z).is_air_block() && map.get_block(x, ay + 1, z).is_air_block() && map.get_block(x, ay - 1, z).is_blocking()
     }
 
     pub fn check_uphill_neighbor(map: &Map, x: i32, ay: i32, z: i32, ax: i32, az: i32) -> bool {
-        map.get_block(x, ay + 1, z) == Block::Air
-            && map.get_block(x, ay + 2, z) == Block::Air
-            && map.get_block(x, ay, z) != Block::Air
-            && map.get_block(ax, ay + 2, az) == Block::Air
+        map.get_block(x, ay + 1, z).is_air_block()
+            && map.get_block(x, ay + 2, z).is_air_block()
+            && map.get_block(x, ay, z).is_blocking()
+            && map.get_block(ax, ay + 2, az).is_air_block()
     }
 
     pub fn check_downhill_neighbor(map: &Map, x: i32, ay: i32, z: i32) -> bool {
-        map.get_block(x, ay - 1, z) == Block::Air
-            && map.get_block(x, ay, z) == Block::Air
-            && map.get_block(x, ay + 1, z) == Block::Air
-            && map.get_block(x, ay - 2, z) != Block::Air
+        map.get_block(x, ay - 1, z).is_air_block()
+            && map.get_block(x, ay, z).is_air_block()
+            && map.get_block(x, ay + 1, z).is_air_block()
+            && map.get_block(x, ay - 2, z).is_blocking()
     }
 
     #[allow(clippy::short_circuit_statement)]
@@ -81,11 +81,11 @@ impl Path {
                     }
                 }
                 for y in ay - offset..=ay + 1 {
-                    if map.get_block(x, y, z) != Block::Air {
+                    if map.get_block(x, y, z).is_blocking() {
                         continue 'height;
                     }
                 }
-                if map.get_block(x, ay - 1 - offset, z) != Block::Air {
+                if map.get_block(x, ay - 1 - offset, z).is_blocking() {
                     accessible_blocks.borrow_mut().insert((x, ay - offset, z), ((ax, ay, az), distance + 1));
                     accesses.borrow_mut().push(((x, ay - offset, z), distance + 1));
                     return true;
