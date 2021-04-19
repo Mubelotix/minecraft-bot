@@ -26,12 +26,12 @@ impl Map {
             }
         };
         self.chunk_columns.insert((chunk_data.chunk_x, chunk_data.chunk_z), chunk_sections);
-        trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_z);
+        //trace!("Loaded chunk {} {}", chunk_data.chunk_x, chunk_data.chunk_z);
     }
 
     pub fn unload_chunk(&mut self, chunk_x: i32, chunk_z: i32) {
         self.chunk_columns.remove(&(chunk_x, chunk_z));
-        trace!("Unloaded chunk {} {}", chunk_x, chunk_z);
+        //trace!("Unloaded chunk {} {}", chunk_x, chunk_z);
     }
 
     pub fn get_block(&self, x: i32, y: i32, z: i32) -> Block {

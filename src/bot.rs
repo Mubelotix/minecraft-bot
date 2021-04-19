@@ -1,4 +1,4 @@
-use crate::{map::Map, network::connect, pathfinder::Path};
+use crate::{map::Map, network::connect, pathfinder::Path, inventory::Windows};
 use log::*;
 use minecraft_format::{
     blocks::MultiBlockChange,
@@ -32,6 +32,7 @@ pub struct Bot {
     position: Option<PlayerPosition>,
     spawn_position: Option<Position>,
     world_name: Option<String>,
+    windows: Windows,
 
     health: f32,
     food: u32,
@@ -45,6 +46,9 @@ impl Bot {
         debug!("Connecting {} to {}:{}", username, addr, port);
         let (receiver, sender) = connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
+        let sender2 = sender.clone();
+        let sender3 = sender.clone();
+
         let bot = Arc::new(Mutex::new(Bot {
             username,
             addr,
@@ -54,6 +58,7 @@ impl Bot {
             spawn_position: None,
             self_entity_id: None,
             world_name: None,
+            windows: Windows::new(sender3),
 
             health: 11.0,
             food: 11,
@@ -62,7 +67,6 @@ impl Bot {
             path: None,
         }));
         let bot2 = Arc::clone(&bot);
-        let sender2 = sender.clone();
 
         // Wait for the server to be ready.
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -287,6 +291,18 @@ impl Bot {
                     let position = self.position.as_ref().unwrap();
                     self.path = Some(Path::new_naive(&self.map, (5000, 80, 100), (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32)));
                 }
+            }
+            ClientboundPacket::OpenWindow { window_id, window_type, window_title: _ } => {
+                self.windows.handle_open_window_packet(window_id.0, window_type.0);
+            }
+            ClientboundPacket::WindowItems { window_id, slots } => {
+                self.windows.handle_update_window_items_packet(window_id, slots);
+            }
+            ClientboundPacket::SetSlot { window_id, slot_index, slot_value } => {
+                self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
+            }
+            ClientboundPacket::CloseWindow { window_id } => {
+                self.windows.handle_close_window_packet(window_id);
             }
             _ => (),
         }
