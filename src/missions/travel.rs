@@ -1,4 +1,6 @@
-use crate::{bot::PlayerPosition, map::Map, pathfinder::Path};
+use minecraft_format::packets::play_serverbound::ServerboundPacket;
+
+use crate::{bot::Bot, map::Map, pathfinder::Path};
 
 #[derive(Debug)]
 pub struct TravelMission {
@@ -11,14 +13,19 @@ impl TravelMission {
             path: Path::find_path(map, position, destination)?
         })
     }
+}
 
-    pub fn apply(&mut self, vertical_speed: &mut f64, map: &Map, position: &mut PlayerPosition) {
-        if let Some(((x, z), jump)) = self.path.follow((position.x, position.y, position.z), &map) {
-            position.x = x;
-            position.z = z;
-            if jump {
-                *vertical_speed = 0.4;
+impl super::Mission for TravelMission {
+    fn execute(&mut self, bot: &mut Bot, _packets: &mut Vec<ServerboundPacket>) -> bool {
+        if let Some(position) = bot.position.as_mut() {
+            if let Some(((x, z), jump)) = self.path.follow((position.x, position.y, position.z), &bot.map) {
+                position.x = x;
+                position.z = z;
+                if jump {
+                    bot.vertical_speed = 0.4;
+                }
             }
         }
+        false
     }
 }

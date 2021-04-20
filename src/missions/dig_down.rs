@@ -1,6 +1,6 @@
 use minecraft_format::{packets::{play_serverbound::ServerboundPacket, Position}, ids::{blocks::Block, items::Item}};
 use log::*;
-use crate::{bot::PlayerPosition, map::Map, inventory::Windows};
+use crate::bot::Bot;
 
 
 #[derive(Debug)]
@@ -18,8 +18,13 @@ impl DigDownMission {
     }
 }
 
-impl DigDownMission {
-    pub fn apply(&mut self, position: &mut PlayerPosition, map: &Map, windows: &mut Windows, packets: &mut Vec<ServerboundPacket>) -> bool {
+impl super::Mission for DigDownMission {
+    fn execute(&mut self, bot: &mut Bot, packets: &mut Vec<ServerboundPacket>) -> bool {
+        let position = match bot.position.as_mut() {
+            Some(position) => position,
+            None => return false,
+        };
+
         match self.state {
             DigDownState::MoveToBlockCenter => {
                 trace!("Moving to block center");
@@ -54,13 +59,13 @@ impl DigDownMission {
                     return true;
                 }
                 let (x, y, z) = (position.x.floor() as i32, position.y.floor() as i32 - 1, position.z.floor() as i32);
-                let block = map.get_block(x, y, z);
+                let block = bot.map.get_block(x, y, z);
                 if !block.is_diggable() {
                     error!("Failed to dig, block {:?} is not diggable", block);
                     return true;
                 }
                 let compatible_harvest_tools = block.get_compatible_harvest_tools();
-                let (can_harvest, speed_multiplier) = match windows.player_inventory.get_hotbar()[0] {
+                let (can_harvest, speed_multiplier) = match &bot.windows.player_inventory.get_hotbar()[0].item {
                     Some(tool) => (
                         compatible_harvest_tools.is_empty() || compatible_harvest_tools.contains(&(tool.item_id as u32)),
                         match tool.item_id {
@@ -110,7 +115,7 @@ impl DigDownMission {
                     face: minecraft_format::blocks::BlockFace::Top,
                 });
 
-                if map.get_block(x, y - 1, z) == Block::Air || map.get_block(x, y - 1, z) == Block::CaveAir {
+                if bot.map.get_block(x, y - 1, z) == Block::Air || bot.map.get_block(x, y - 1, z) == Block::CaveAir {
                     packets.push(ServerboundPacket::DigBlock {
                         status: minecraft_format::blocks::DiggingState::Finished,
                         location: Position { x, y: y as i16, z },

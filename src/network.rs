@@ -43,8 +43,8 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
     )
     .unwrap();
 
-    let mut response = read_packet(&stream, None, None).unwrap();
-    let response_packet = minecraft_format::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&mut response).unwrap();
+    let response = read_packet(&stream, None, None).unwrap();
+    let response_packet = minecraft_format::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&response).unwrap();
     assert!(matches!(
         response_packet,
         minecraft_format::packets::login::ClientboundPacket::LoginSuccess { .. }

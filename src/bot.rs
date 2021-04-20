@@ -1,7 +1,7 @@
 use crate::{
     inventory::Windows,
     map::Map,
-    missions::{dig_down::DigDownMission, travel::TravelMission, Mission},
+    missions::*,
     network::connect,
 };
 use log::*;
@@ -39,7 +39,7 @@ pub struct Bot {
     pub food: u32,
     pub food_saturation: f32,
     pub vertical_speed: f64,
-    pub mission: Mission,
+    pub mission: Arc<Mutex<Option<Box<dyn Mission>>>>,
 }
 
 impl Bot {
@@ -48,6 +48,7 @@ impl Bot {
         let (receiver, sender) = connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
         let sender2 = sender.clone();
+        let sender3 = sender.clone();
 
         let bot = Arc::new(Mutex::new(Bot {
             username,
@@ -58,8 +59,8 @@ impl Bot {
             spawn_position: None,
             self_entity_id: None,
             world_name: None,
-            windows: Windows::new(),
-            mission: Mission::None,
+            windows: Windows::new(sender3),
+            mission: Arc::new(Mutex::new(None)),
 
             health: 11.0,
             food: 11,
@@ -150,7 +151,10 @@ impl Bot {
 
         // TODO, replace path with mission
 
-        Mission::apply(self, &mut packets);
+        let mission = Arc::clone(&self.mission);
+        if let Some(mission) = mission.lock().unwrap().as_mut() {
+            mission.execute(self, &mut packets);
+        }
 
         if let Some(position) = self.position.as_mut() {
             let max_negative_speed = self.map.max_fall(position.x, position.y, position.z);
@@ -279,10 +283,10 @@ impl Bot {
                     let position = self.position.as_ref().unwrap();
                     let position = (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32);
                     if let Some(travel_mission) = TravelMission::new((-77, 89, 88), &self.map, position) {
-                        self.mission = Mission::Travel(travel_mission);
+                        *self.mission.lock().unwrap() = Some(Box::new(travel_mission));
                     }
                 } else if message.contains("dig down") {
-                    self.mission = Mission::DigDown(DigDownMission::new(12));
+                    *self.mission.lock().unwrap() = Some(Box::new(DigDownMission::new(12)));
                 }
             }
             ClientboundPacket::OpenWindow {
@@ -301,6 +305,12 @@ impl Bot {
                 slot_value,
             } => {
                 self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
+            }
+            ClientboundPacket::WindowConfirmation { window_id, action_id, accepted } => {
+                self.windows.handle_window_confirmation_packet(window_id, action_id, accepted);
+                if !accepted {
+                    responses.push(ServerboundPacket::WindowConfirmation{window_id, action_id, accepted})
+                }
             }
             ClientboundPacket::CloseWindow { window_id } => {
                 self.windows.handle_close_window_packet(window_id);

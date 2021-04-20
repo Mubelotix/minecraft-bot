@@ -1,7 +1,7 @@
 use crate::map::Map;
 use log::*;
-use minecraft_format::{ids::blocks::Block, packets::Direction};
-use std::{cell::RefCell, collections::BTreeMap, thread::current};
+use minecraft_format::packets::Direction;
+use std::{cell::RefCell, collections::BTreeMap};
 
 // todo listen for block change and update path as the map is modified
 // todo consider some blocks as liquid and some as transparent

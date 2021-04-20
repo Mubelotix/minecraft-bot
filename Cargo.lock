@@ -10,6 +10,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "array-macro"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a08c8f180019011a1d94e5eebcbfaa548736815f636fadc10955f1b622b4c71"
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -124,6 +130,7 @@ checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 name = "minecraft-bot"
 version = "0.1.0"
 dependencies = [
+ "array-macro",
  "env_logger",
  "log",
  "minecraft-format",
