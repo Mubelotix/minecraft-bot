@@ -2,6 +2,8 @@ use minecraft_format::packets::play_serverbound::ServerboundPacket;
 
 use crate::{bot::Bot, map::Map, pathfinder::Path};
 
+use super::MissionResult;
+
 #[derive(Debug)]
 pub struct TravelMission {
     path: Path,
@@ -16,7 +18,7 @@ impl TravelMission {
 }
 
 impl super::Mission for TravelMission {
-    fn execute(&mut self, bot: &mut Bot, _packets: &mut Vec<ServerboundPacket>) -> bool {
+    fn execute(&mut self, bot: &mut Bot, _packets: &mut Vec<ServerboundPacket>) -> MissionResult {
         if let Some(position) = bot.position.as_mut() {
             if let Some(((x, z), jump)) = self.path.follow((position.x, position.y, position.z), &bot.map) {
                 position.x = x;
@@ -26,6 +28,6 @@ impl super::Mission for TravelMission {
                 }
             }
         }
-        false
+        MissionResult::InProgress
     }
 }

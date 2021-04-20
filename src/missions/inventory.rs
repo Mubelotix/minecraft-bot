@@ -1,24 +1,28 @@
 use crate::missions::Mission;
 use log::*;
 use minecraft_format::{ids::items::Item, packets::play_serverbound::ServerboundPacket};
+use super::MissionResult;
 
+#[derive(Debug)]
 pub struct MoveItemToHotbar {
     minimum: i32,
-    potential_items: Vec<Item>,
+    items: Vec<Item>,
     hotbar_slot: Option<usize>,
     state: MoveItemState,
 }
 
 impl MoveItemToHotbar {
-    pub fn new(minimum: u32, potential_items: Vec<Item>, hotbar_slot: Option<usize>) -> Self {
+    pub fn new(minimum: u32, items: Vec<Item>, hotbar_slot: Option<usize>) -> Self {
         Self {
             minimum: minimum as i32,
-            potential_items,
+            items,
             hotbar_slot,
             state: MoveItemState::PickItem,
         }
     }
 }
+
+#[derive(Debug)]
 enum MoveItemState {
     PickItem,
     WaitPickConfirmation { action_id: i16 },
@@ -26,28 +30,47 @@ enum MoveItemState {
     WaitPutConfirmation { action_id: i16 },
     SweepCursor,
     WaitSweepConfirmation { action_id: i16 },
+
+    Failed,
     Done,
 }
 
+impl MoveItemState {
+    fn fail(&mut self, msg: &str) -> MissionResult {
+        *self = MoveItemState::Failed;
+        error!("Failed mission: {}", msg);
+        MissionResult::Failed
+    }
+
+    fn complete(&mut self, msg: &str) -> MissionResult {
+        *self = MoveItemState::Done;
+        debug!("Mission complete: {}", msg);
+        MissionResult::Done
+    }
+}
+
 impl Mission for MoveItemToHotbar {
-    fn execute(&mut self, bot: &mut crate::bot::Bot, _packets: &mut Vec<ServerboundPacket>) -> bool {
+    fn execute(&mut self, bot: &mut crate::bot::Bot, _packets: &mut Vec<ServerboundPacket>) -> MissionResult {
+
         match self.state {
             MoveItemState::PickItem => {
                 // Find item
                 let mut slot_id = None;
-                for (idx, slot) in bot.windows.player_inventory.get_slots().iter().enumerate() {
-                    if let Some(item) = &slot.item {
-                        if self.potential_items.contains(&item.item_id) && item.item_count.0 >= self.minimum {
-                            slot_id  = Some(idx);
+                for asked_item in &self.items {
+                    for (idx, slot) in bot.windows.player_inventory.get_slots().iter().enumerate() {
+                        if let Some(item) = &slot.item {
+                            // TODO gather items that are on multiple slots
+                            if *asked_item == item.item_id && item.item_count.0 >= self.minimum {
+                                slot_id  = Some(idx);
+                                trace!("Found {:?}", item.item_id);
+                                break;
+                            }
                         }
                     }
                 }
                 let slot_id = match slot_id {
                     Some(slot_id) => slot_id,
-                    None => {
-                        warn!("Could not find item");
-                        return false;
-                    }
+                    None => return self.state.fail(&format!("Could not find more than {} items (any of {:?}).", self.minimum, self.items)),
                 };
 
                 // Click item
@@ -68,7 +91,7 @@ impl Mission for MoveItemToHotbar {
             }
             MoveItemState::PutItem => {
                 let destination_slot_id = match self.hotbar_slot {
-                    Some(hotbar_slot_id) => hotbar_slot_id + 9,
+                    Some(hotbar_slot_id) => hotbar_slot_id + 36,
                     None => 45, // offhand id
                 };
 
@@ -91,10 +114,7 @@ impl Mission for MoveItemToHotbar {
             MoveItemState::SweepCursor => {
                 let cursor_item = match bot.windows.cursor.item.take() {
                     Some(item) => item,
-                    None => {
-                        self.state = MoveItemState::Done;
-                        return true;
-                    },
+                    None => return self.state.complete(&format!("Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}", self.minimum, self.items, self.hotbar_slot))
                 };
 
                 // Find empty slot in inventory
@@ -109,7 +129,7 @@ impl Mission for MoveItemToHotbar {
                     None => {
                         warn!("Could not find an empty slot to sweep cursor item");
                         bot.windows.cursor.item = Some(cursor_item);
-                        return true;
+                        return self.state.complete(&format!("Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}", self.minimum, self.items, self.hotbar_slot))
                     }
                 };
 
@@ -119,10 +139,7 @@ impl Mission for MoveItemToHotbar {
             }
             MoveItemState::WaitSweepConfirmation { action_id } => {
                 match bot.windows.get_action_state(0, action_id) {
-                    Some(true) => {
-                        self.state = MoveItemState::Done;
-                        return true;
-                    }
+                    Some(true) => return self.state.complete(&format!("Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}", self.minimum, self.items, self.hotbar_slot)),
                     Some(false) => {
                         warn!("Denied item move (put)");
                         self.state = MoveItemState::PutItem;
@@ -131,9 +148,13 @@ impl Mission for MoveItemToHotbar {
                 }
             }
             MoveItemState::Done => {
-                return true;
+                return MissionResult::Done;
+            }
+            MoveItemState::Failed => {
+                return MissionResult::Failed;
             }
         }
-        false
+        
+        MissionResult::InProgress
     }
 }

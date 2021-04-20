@@ -1,7 +1,10 @@
-use minecraft_format::{packets::{play_serverbound::ServerboundPacket, Position}, ids::{blocks::Block, items::Item}};
-use log::*;
+use super::*;
 use crate::bot::Bot;
-
+use log::*;
+use minecraft_format::{
+    ids::{blocks::Block, items::Item},
+    packets::{play_serverbound::ServerboundPacket, Position},
+};
 
 #[derive(Debug)]
 pub struct DigDownMission {
@@ -18,16 +21,42 @@ impl DigDownMission {
     }
 }
 
+#[derive(Debug)]
+enum DigDownState {
+    MoveToBlockCenter,
+    FindTool {submission: MoveItemToHotbar},
+    FindBlocks {submission: MoveItemToHotbar},
+    StartDigging,
+    WaitDigging { ticks: usize },
+    FinishDigging,
+
+    Done,
+    Failed,
+}
+
+impl DigDownState {
+    fn fail(&mut self, msg: &str) -> MissionResult {
+        *self = DigDownState::Failed;
+        error!("Failed mission: {}", msg);
+        MissionResult::Failed
+    }
+
+    fn complete(&mut self, msg: &str) -> MissionResult {
+        *self = DigDownState::Done;
+        debug!("Mission complete: {}", msg);
+        MissionResult::Done
+    }
+}
+
 impl super::Mission for DigDownMission {
-    fn execute(&mut self, bot: &mut Bot, packets: &mut Vec<ServerboundPacket>) -> bool {
+    fn execute(&mut self, bot: &mut Bot, packets: &mut Vec<ServerboundPacket>) -> MissionResult {
         let position = match bot.position.as_mut() {
             Some(position) => position,
-            None => return false,
+            None => return self.state.fail("Cannot dig down if the position is unknown"),
         };
 
-        match self.state {
+        match &mut self.state {
             DigDownState::MoveToBlockCenter => {
-                trace!("Moving to block center");
                 let mut offset_x = 0.5 - (position.x - position.x.floor());
                 let mut offset_z = 0.5 - (position.z - position.z.floor());
                 let mut done = true;
@@ -45,24 +74,42 @@ impl super::Mission for DigDownMission {
                     offset_z = -0.2;
                     done = false;
                 }
-                trace!("{} {} {} {}", position.x, offset_x, position.z, offset_z);
+
                 position.x += offset_x;
                 position.z += offset_z;
+
+                packets.push(ServerboundPacket::HeldItemChange{slot: 0});
+
                 if done {
-                    self.state = DigDownState::StartDigging;
+                    self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
                 }
             }
-            DigDownState::FindAppropriateTool => todo!(),
+            DigDownState::FindTool {submission} => {
+                match submission.execute(bot, packets) {
+                    MissionResult::Done | MissionResult::Failed => self.state = DigDownState::FindBlocks{submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Stone, Item::Dirt], None) },
+                    MissionResult::InProgress => (),
+                }
+            }
+            DigDownState::FindBlocks {submission} => {
+                match submission.execute(bot, packets) {
+                    MissionResult::Done => self.state = DigDownState::StartDigging,
+                    MissionResult::Failed => self.state = {
+                        warn!("Could not find blocks");
+                        DigDownState::StartDigging
+                    },
+                    MissionResult::InProgress => (),
+                }
+            },
             DigDownState::StartDigging => {
-                trace!("Start digging");
                 if position.y.floor() as isize <= self.until_block as isize {
-                    return true;
+                    return self
+                        .state
+                        .complete(&format!("Mission complete: Made a hole deeper than {}", self.until_block));
                 }
                 let (x, y, z) = (position.x.floor() as i32, position.y.floor() as i32 - 1, position.z.floor() as i32);
                 let block = bot.map.get_block(x, y, z);
                 if !block.is_diggable() {
-                    error!("Failed to dig, block {:?} is not diggable", block);
-                    return true;
+                    return self.state.fail(&format!("Failed to dig, block {:?} is not diggable", block));
                 }
                 let compatible_harvest_tools = block.get_compatible_harvest_tools();
                 let (can_harvest, speed_multiplier) = match &bot.windows.player_inventory.get_hotbar()[0].item {
@@ -88,7 +135,6 @@ impl super::Mission for DigDownMission {
                     }
                     false => time_required *= 5.0,
                 }
-                trace!("hardness = {}", block.get_hardness() as f64);
                 let ticks = (time_required * 20.0).ceil() as usize;
                 packets.push(ServerboundPacket::DigBlock {
                     status: minecraft_format::blocks::DiggingState::Started,
@@ -96,12 +142,11 @@ impl super::Mission for DigDownMission {
                     face: minecraft_format::blocks::BlockFace::Top,
                 });
 
-                trace!("Waiting {} ticks", ticks);
                 self.state = DigDownState::WaitDigging { ticks };
             }
             DigDownState::WaitDigging { ticks } => {
-                if ticks >= 1 {
-                    self.state = DigDownState::WaitDigging { ticks: ticks - 1 };
+                if *ticks >= 1 {
+                    self.state = DigDownState::WaitDigging { ticks: *ticks - 1 };
                 } else {
                     self.state = DigDownState::FinishDigging;
                 }
@@ -124,18 +169,17 @@ impl super::Mission for DigDownMission {
                 }
                 // todo check open blocks
 
-                self.state = DigDownState::StartDigging;
+                self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
+            }
+
+            DigDownState::Done => {
+                return MissionResult::Done;
+            }
+            DigDownState::Failed => {
+                return MissionResult::Failed;
             }
         }
-        false
-    }
-}
 
-#[derive(Debug, Clone, Copy)]
-enum DigDownState {
-    MoveToBlockCenter,
-    FindAppropriateTool,
-    StartDigging,
-    WaitDigging { ticks: usize },
-    FinishDigging,
+        MissionResult::InProgress
+    }
 }

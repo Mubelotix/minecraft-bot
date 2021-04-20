@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, sync::mpsc::Sender};
 use log::*;
 use minecraft_format::{packets::{Array, serializer::MinecraftPacketPart, play_serverbound::ServerboundPacket}, slots::Slot};
 
+#[derive(Debug)]
 pub struct PlayerInventory {
     slots: [Slot; 46],
 }
