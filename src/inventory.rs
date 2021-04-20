@@ -18,6 +18,10 @@ impl PlayerInventory {
         }
     }
 
+    pub fn get_slots(&self) -> &[Slot; 46] {
+        &self.slots
+    }
+
     pub fn get_crafting_output(&self) -> &Slot {
         &self.slots[0]
     }
@@ -97,16 +101,21 @@ use array_macro::array;
 pub struct Windows {
     pub player_inventory: PlayerInventory,
     pub cursor: Slot,
-    pub windows: BTreeMap<i8, (Window, Vec<Option<bool>>)>,
+    pub windows: BTreeMap<i8, Window>,
+    window_click_states: BTreeMap<i8, Vec<Option<bool>>>,
     sender: Sender<Vec<u8>>,
 }
 
 impl Windows {
     pub fn new(sender: Sender<Vec<u8>>) -> Self {
+        let mut window_click_states = BTreeMap::new();
+        window_click_states.insert(0, Vec::new());
+
         Windows {
             player_inventory: PlayerInventory { slots: array![Slot {item: None}; 46] },
             cursor: Slot{item: None},
             windows: BTreeMap::new(),
+            window_click_states,
             sender,
         }
     }
@@ -136,9 +145,9 @@ impl Windows {
     }
 
     fn register_new_action(&mut self, window_id: i8) -> i16 {
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            window.1.push(None);
-            (window.1.len() - 1) as i16
+        if let Some(window_click_states) = self.window_click_states.get_mut(&window_id) {
+            window_click_states.push(None);
+            (window_click_states.len() - 1) as i16
         } else {
             error!("New action registered in closed window");
             0
@@ -146,8 +155,8 @@ impl Windows {
     }
 
     pub fn get_action_state(&self, window_id: i8, action_id: i16) -> &Option<bool> {
-        if let Some(window) = self.windows.get(&window_id) {
-            if let Some(state) = window.1.get(action_id as usize) {
+        if let Some(window_click_states) = self.window_click_states.get(&window_id) {
+            if let Some(state) = window_click_states.get(action_id as usize) {
                 state
             } else {
                 warn!("Window action state with inexistant id ({})", action_id);
@@ -160,6 +169,7 @@ impl Windows {
     }
 
     pub fn handle_open_window_packet(&mut self, window_id: i32, window_type: i32) {
+        self.window_click_states.insert(window_id as i8, Vec::new());
         trace!("Opening window {} (type={})", window_id, window_type);
     }
 
@@ -187,7 +197,9 @@ impl Windows {
     pub fn handle_set_slot_packet(&mut self, window_id: i8, slot_id: i16, slot_data: Slot) {
         trace!("Setting slot {} in window {} to {:?}.", slot_id, window_id, slot_data);
         match window_id {
-            -1 => {}
+            -1 if slot_id == -1 => {
+                self.cursor = slot_data;
+            }
             0 => {
                 self.player_inventory.set_slot_clientbound(slot_id, slot_data);
             }
@@ -198,8 +210,8 @@ impl Windows {
     }
 
     pub fn handle_window_confirmation_packet(&mut self, window_id: i8, action_id: i16, accepted: bool) {
-        if let Some(window) = self.windows.get_mut(&window_id) {
-            if let Some(state) = window.1.get_mut(action_id as usize) {
+        if let Some(window_click_states) = self.window_click_states.get_mut(&window_id) {
+            if let Some(state) = window_click_states.get_mut(action_id as usize) {
                 *state = Some(accepted)
             } else {
                 warn!("Window confirmation received with inexistant action_id: {} in {}", action_id, window_id);
@@ -209,8 +221,10 @@ impl Windows {
 
     pub fn handle_close_window_packet(&mut self, window_id: i8) {
         trace!("Closing window {}", window_id);
-        if self.windows.remove(&window_id).is_none() {
-            warn!("There was no window {}", window_id);
+        let r1 = self.windows.remove(&window_id).is_none();
+        let r2 = self.window_click_states.remove(&window_id).is_none();
+        if r1 || r2 {
+            warn!("There was no window {} ({}, {})", window_id, r1, r2);
         }
     }
 }

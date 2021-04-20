@@ -287,6 +287,10 @@ impl Bot {
                     }
                 } else if message.contains("dig down") {
                     *self.mission.lock().unwrap() = Some(Box::new(DigDownMission::new(12)));
+                } else if message.contains("test inventory 1") {
+                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_format::ids::items::Item::Sand], Some(3))));
+                } else if message.contains("test inventory 2") {
+                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_format::ids::items::Item::Sand], None)));
                 }
             }
             ClientboundPacket::OpenWindow {

@@ -34,16 +34,16 @@ impl Mission for MoveItemToHotbar {
         match self.state {
             MoveItemState::PickItem => {
                 // Find item
-                let mut slot_idx = None;
-                for (idx, slot) in bot.windows.player_inventory.get_main_inventory().iter().enumerate() {
+                let mut slot_id = None;
+                for (idx, slot) in bot.windows.player_inventory.get_slots().iter().enumerate() {
                     if let Some(item) = &slot.item {
                         if self.potential_items.contains(&item.item_id) && item.item_count.0 >= self.minimum {
-                            slot_idx  = Some(idx);
+                            slot_id  = Some(idx);
                         }
                     }
                 }
-                let slot_id = match slot_idx {
-                    Some(slot_idx) => slot_idx + 9,
+                let slot_id = match slot_id {
+                    Some(slot_id) => slot_id,
                     None => {
                         warn!("Could not find item");
                         return false;
