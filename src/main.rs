@@ -1,5 +1,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::result_unit_err)]
 
 pub mod bot;
 pub mod map;

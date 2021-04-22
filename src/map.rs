@@ -1,4 +1,4 @@
-use crate::pathfinder::Path;
+use crate::{pathfinder::Path, inventory::PlayerInventory};
 use log::*;
 use minecraft_format::{
     chunk::{ChunkData, ChunkSection},
@@ -305,7 +305,7 @@ impl Map {
         -2.0
     }
 
-    pub fn set_block_state(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block_state_id: u32) {
+    pub fn set_block_state_complex(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block_state_id: u32) {
         let chunk_column = match self.chunk_columns.get_mut(&(chunk_x, chunk_z)) {
             Some(chunk_column) => chunk_column,
             None => {
@@ -354,9 +354,24 @@ impl Map {
         }
     }
 
-    pub fn set_block(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block: Block) {
+    pub fn set_block_complex(&mut self, chunk_x: i32, chunk_y: i32, chunk_z: i32, block_x: u8, block_y: u8, block_z: u8, block: Block) {
         let block_state_id = block.get_default_state_id();
-        self.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block_state_id)
+        self.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block_state_id)
+    }
+
+    pub fn set_block_state(&mut self, x: i32, y: i32, z: i32, block_state_id: u32) {
+        let block_x = x.rem_euclid(16);
+        let block_y = y.rem_euclid(16);
+        let block_z = z.rem_euclid(16);
+        let chunk_x = (x - block_x) / 16;
+        let chunk_y = (y - block_y) / 16;
+        let chunk_z = (z - block_z) / 16;
+        self.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x as u8, block_y as u8, block_z as u8, block_state_id)
+    }
+
+    pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: Block) {
+        let block_state_id = block.get_default_state_id();
+        self.set_block_state(x, y, z, block_state_id)
     }
 
     pub fn find_path(&self, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Path> {

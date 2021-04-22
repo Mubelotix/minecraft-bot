@@ -6,6 +6,8 @@ use minecraft_format::{
     packets::{play_serverbound::ServerboundPacket, Position},
 };
 
+const BLOCKS_TO_BE_REPLACED: [Block; 4] = [Block::Air, Block::CaveAir, Block::Lava, Block::Water];
+
 #[derive(Debug)]
 pub struct DigDownMission {
     until_block: usize,
@@ -78,7 +80,7 @@ impl super::Mission for DigDownMission {
                 position.x += offset_x;
                 position.z += offset_z;
 
-                packets.push(ServerboundPacket::HeldItemChange{slot: 0});
+                bot.windows.player_inventory.change_held_item(0);
 
                 if done {
                     self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
@@ -86,7 +88,7 @@ impl super::Mission for DigDownMission {
             }
             DigDownState::FindTool {submission} => {
                 match submission.execute(bot, packets) {
-                    MissionResult::Done | MissionResult::Failed => self.state = DigDownState::FindBlocks{submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Stone, Item::Dirt], None) },
+                    MissionResult::Done | MissionResult::Failed => self.state = DigDownState::FindBlocks{submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Cobblestone, Item::Dirt], None) },
                     MissionResult::InProgress => (),
                 }
             }
@@ -159,15 +161,30 @@ impl super::Mission for DigDownMission {
                     location: Position { x, y: y as i16, z },
                     face: minecraft_format::blocks::BlockFace::Top,
                 });
+                bot.windows.player_inventory.use_held_item(1);
 
-                if bot.map.get_block(x, y - 1, z) == Block::Air || bot.map.get_block(x, y - 1, z) == Block::CaveAir {
-                    packets.push(ServerboundPacket::DigBlock {
-                        status: minecraft_format::blocks::DiggingState::Finished,
-                        location: Position { x, y: y as i16, z },
-                        face: minecraft_format::blocks::BlockFace::Top,
-                    });
+                let mut blocks_to_replace = Vec::new();
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y-1, z)) {
+                    blocks_to_replace.push((x, y-1, z));
                 }
-                // todo check open blocks
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x+1, y, z)) {
+                    blocks_to_replace.push((x+1, y, z));
+                }
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x-1, y, z)) {
+                    blocks_to_replace.push((x-1, y, z));
+                }
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z+1)) {
+                    blocks_to_replace.push((x, y, z+1));
+                }
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z-1)) {
+                    blocks_to_replace.push((x, y, z-1));
+                }
+
+                for (x, y, z) in blocks_to_replace {
+                    if bot.windows.player_inventory.place_block(&mut bot.map, false, (x, y, z)).is_err() {
+                        warn!("Failed to place block");
+                    }
+                }
 
                 self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
             }

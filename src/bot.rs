@@ -263,7 +263,7 @@ impl Bot {
                 trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
                 for block in blocks.items {
                     let (block, block_x, block_y, block_z) = MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
-                    self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
+                    self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
                 }
             }
             ClientboundPacket::BlockChange { location, block_state } => {
@@ -274,7 +274,7 @@ impl Bot {
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
                 trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
-                self.map.set_block_state(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
+                self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
                     std::mem::transmute(block_state.0)
                 });
             }
@@ -318,6 +318,9 @@ impl Bot {
             }
             ClientboundPacket::CloseWindow { window_id } => {
                 self.windows.handle_close_window_packet(window_id);
+            }
+            ClientboundPacket::HeldItemChange {slot} => {
+                self.windows.player_inventory.handle_held_item_change_packet(slot);
             }
             _ => (),
         }
