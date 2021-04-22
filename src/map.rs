@@ -1,4 +1,3 @@
-use crate::{pathfinder::Path, inventory::PlayerInventory};
 use log::*;
 use minecraft_format::{
     chunk::{ChunkData, ChunkSection},
@@ -372,9 +371,5 @@ impl Map {
     pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: Block) {
         let block_state_id = block.get_default_state_id();
         self.set_block_state(x, y, z, block_state_id)
-    }
-
-    pub fn find_path(&self, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Path> {
-        Path::find_path(self, position, destination)
     }
 }

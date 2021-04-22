@@ -56,7 +56,7 @@ impl Mission for MoveItemToHotbar {
 
                 if let Some(item) = &bot.windows.player_inventory.get_slots()[destination_slot_id].item {
                     if self.items.contains(&item.item_id) && item.item_count.0 >= self.minimum {
-                        debug!("Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}", self.minimum, self.items, self.hotbar_slot);
+                        trace!("Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}", self.minimum, self.items, self.hotbar_slot);
                         self.state = MoveItemState::Done;
                         return MissionResult::Done;
                     }
@@ -64,8 +64,6 @@ impl Mission for MoveItemToHotbar {
                 self.state = MoveItemState::PickItem;
             },
             MoveItemState::PickItem => {
-                trace!("Inventory: {:?}", bot.windows.player_inventory);
-
                 // Find item
                 let mut slot_id = None;
                 for asked_item in &self.items {
@@ -94,7 +92,6 @@ impl Mission for MoveItemToHotbar {
                         self.state = MoveItemState::PutItem;
                     }
                     Some(false) => {
-                        warn!("Denied item move (pick)");
                         self.state = MoveItemState::PickItem;
                     }
                     None => {}
@@ -116,7 +113,6 @@ impl Mission for MoveItemToHotbar {
                         self.state = MoveItemState::SweepCursor;
                     }
                     Some(false) => {
-                        warn!("Denied item move (put)");
                         self.state = MoveItemState::PutItem;
                     }
                     None => {}
@@ -150,8 +146,7 @@ impl Mission for MoveItemToHotbar {
                 match bot.windows.get_action_state(0, action_id) {
                     Some(true) => return {self.state = MoveItemState::CheckNeed; MissionResult::InProgress},
                     Some(false) => {
-                        warn!("Denied item move (sweep)");
-                        self.state = MoveItemState::PutItem;
+                        self.state = MoveItemState::SweepCursor;
                     }
                     None => {}
                 }
