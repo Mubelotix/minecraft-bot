@@ -3,12 +3,21 @@
 #![allow(clippy::result_unit_err)]
 
 pub mod bot;
+pub mod entities;
+pub mod inventory;
 pub mod map;
+pub mod missions;
 pub mod network;
 pub mod pathfinder;
-pub mod inventory;
-pub mod missions;
 use bot::Bot;
+
+pub use log::*;
+pub use minecraft_format::{
+    ids::{blocks::Block, items::Item, entities::Entity},
+    packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position, VarInt},
+    slots::Slot,
+};
+pub use {bot::*, entities::*, inventory::*, map::*, missions::*, pathfinder::*};
 
 fn main() {
     env_logger::init();

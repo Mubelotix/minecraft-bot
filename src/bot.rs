@@ -1,14 +1,7 @@
-use crate::{
-    inventory::Windows,
-    map::Map,
-    missions::*,
-    network::connect,
-};
-use log::*;
+use crate::*;
 use minecraft_format::{
     blocks::MultiBlockChange,
     chat::ChatMode,
-    packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position},
     slots::MainHand,
     MinecraftPacketPart,
 };
@@ -29,6 +22,7 @@ pub struct Bot {
     pub addr: String,
     pub port: u16,
     pub map: Map,
+    pub entities: Entities,
     pub self_entity_id: Option<i32>,
     pub position: Option<PlayerPosition>,
     pub spawn_position: Option<Position>,
@@ -45,21 +39,21 @@ pub struct Bot {
 impl Bot {
     pub fn create(addr: String, port: u16, username: String) {
         debug!("Connecting {} to {}:{}", username, addr, port);
-        let (receiver, sender) = connect(&addr, port, &username);
+        let (receiver, sender) = crate::network::connect(&addr, port, &username);
         info!("{} is connected on {}:{}", username, addr, port);
         let sender2 = sender.clone();
-        let sender3 = sender.clone();
 
         let bot = Arc::new(Mutex::new(Bot {
             username,
             addr,
             port,
             map: Map::new(),
+            entities: Entities::new(sender.clone()),
             position: None,
             spawn_position: None,
             self_entity_id: None,
             world_name: None,
-            windows: Windows::new(sender3),
+            windows: Windows::new(sender.clone()),
             mission: Arc::new(Mutex::new(None)),
 
             health: 11.0,
@@ -230,7 +224,8 @@ impl Bot {
                 self.spawn_position = Some(location);
             }
             ClientboundPacket::JoinGame { player_id, world_name, .. } => {
-                info!("Joined a world! ({})", world_name);
+                info!("Joined a world! ({}) {}", world_name, player_id);
+                self.entities.add_self(player_id);
                 self.self_entity_id = Some(player_id);
                 self.world_name = Some(world_name.to_string());
             }
@@ -321,6 +316,51 @@ impl Bot {
             }
             ClientboundPacket::HeldItemChange {slot} => {
                 self.windows.player_inventory.handle_held_item_change_packet(slot);
+            }
+            ClientboundPacket::SpawnEntity { id, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z } => {
+                self.entities.handle_spawn_entity_packet(id.0, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z);
+            }
+            ClientboundPacket::SpawnPlayer { id, uuid, x, y, z, yaw, pitch } => {
+                self.entities.handle_spawn_player_packet(id.0, uuid, x, y, z, yaw, pitch);
+            }
+            ClientboundPacket::SpawnLivingEntity { id, uuid, entity_type, x, y, z, yaw, pitch, head_pitch, velocity_x, velocity_y, velocity_z } => {
+                self.entities.handle_spawn_living_entity_packet(id.0, uuid, entity_type, x, y, z, yaw, pitch, head_pitch, velocity_x, velocity_y, velocity_z);
+            }
+            ClientboundPacket::SpawnExperienceOrb { id, x, y, z, count } => {
+                self.entities.handle_spawn_experience_orb_packet(id.0, x, y, z, count);
+            }
+            ClientboundPacket::SpawnPainting { id, uuid, motive, location, direction } => {
+                self.entities.handle_spawn_painting_packet(id.0, uuid, motive, location, direction);
+            }
+            ClientboundPacket::EntityAnimation { .. } | ClientboundPacket::EntityStatus { .. } | ClientboundPacket::EntityHeadLook { .. } => {
+                // Unsupported as it is primarly used in animations
+            }
+            ClientboundPacket::EntityPosition { entity_id, delta_x, delta_y, delta_z, on_ground } => {
+                self.entities.handle_entity_position_packet(entity_id.0, delta_x, delta_y, delta_z, on_ground);
+            }
+            ClientboundPacket::EntityPositionAndRotation { entity_id, delta_x, delta_y, delta_z, yaw, pitch, on_ground } => {
+                self.entities.handle_entity_position_and_rotation_packet(entity_id.0, delta_x, delta_y, delta_z, yaw, pitch, on_ground);
+            }
+            ClientboundPacket::EntityMovement { entity_id } => {
+                self.entities.handle_entity_movement_packet(entity_id.0);
+            }
+            ClientboundPacket::DestoryEntities { entity_ids } => {
+                self.entities.handle_destroy_entities_packet(entity_ids.items.iter().map(|varint| varint.0).collect());
+            }
+            ClientboundPacket::RemoveEntityEffect { entity_id, effect } => {
+                self.entities.handle_remove_entity_effect_packet(entity_id.0, effect);
+            }
+            ClientboundPacket::EntityVelocity { entity_id, velocity_x, velocity_y, velocity_z } => {
+                self.entities.handle_entity_velocity_packet(entity_id.0, velocity_x, velocity_y, velocity_z);
+            }
+            ClientboundPacket::EntityEquipment { entity_id, equipment } => {
+                self.entities.handle_entity_equipement_packet(entity_id.0, equipment);
+            }
+            ClientboundPacket::TeleportEntity { entity_id, x, y, z, yaw, pitch, on_ground } => {
+                self.entities.handle_teleport_entity_packet(entity_id.0, x, y, z, yaw, pitch, on_ground);
+            }
+            ClientboundPacket::EntityAttributes { entity_id, attributes } => {
+                self.entities.handle_entity_attributes_packet(entity_id.0, attributes);
             }
             _ => (),
         }
