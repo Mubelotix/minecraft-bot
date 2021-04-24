@@ -10,9 +10,9 @@ pub struct TravelMission {
 }
 
 impl TravelMission {
-    pub fn new(destination: (i32, i32, i32), map: &Map, position: (i32, i32, i32)) -> Option<Self> {
+    pub fn new(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Self> {
         Some(Self {
-            path: Path::find_path(map, position, destination)?
+            path: Path::new_find_path(map, position, destination)?
         })
     }
 }

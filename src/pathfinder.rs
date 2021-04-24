@@ -29,7 +29,7 @@ impl Node {
         let delta_x = destination.0 - position.0;
         let delta_y = destination.1 - position.1;
         let delta_z = destination.2 - position.2;
-        let h_cost = (((delta_x as f64).powi(2) + (delta_y as f64).powi(2) + (delta_z as f64).powi(2)).sqrt() * 10.0) as usize;
+        let h_cost = ((delta_x.abs() + delta_y.abs() + delta_z.abs()) as usize) * 12;
         Node {
             g_cost,
             h_cost,
@@ -270,19 +270,34 @@ impl Path {
         while let Some(node) = open_nodes.pop() {
             if node.x == destination.0 && node.y == destination.1 && node.z == destination.2 {
                 trace!("Found destination");
-                break;
+                trace!("Finished the loop in {}ms. {} closed nodes", start_instant.elapsed().as_millis(), closed_nodes.len());
+
+                let mut path = Vec::new();
+                let mut node = node;
+                loop {
+                    path.push((node.x, node.y, node.z));
+                    let next_node_idx = match closed_nodes.iter().position(|n| n.x == node.origin.0 && n.y == node.origin.1 && n.z == node.origin.2) {
+                        Some(idx) => idx,
+                        None => break,
+                    };
+                    node = closed_nodes.remove(next_node_idx);
+                }
+                path.reverse();
+                trace!("Path len: {}", path.len());
+        
+                return Some(Path { path, can_log: true, })
             }
 
             node.close(&map, destination, &mut closed_nodes, &mut open_nodes);
 
             counter += 1;
             if counter > 7500 {
-                trace!("Did not find the destination in time");
-                break;
+                warn!("Could not find the destination in time. {}ms used", start_instant.elapsed().as_millis());
+                return None;
             }
         }
-        trace!("Finished the loop in {}ms. {} closed nodes", start_instant.elapsed().as_millis(), closed_nodes.len());
 
+        trace!("Unreachable destination");
         None
     }
 
