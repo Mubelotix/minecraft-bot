@@ -276,10 +276,7 @@ impl Bot {
             ClientboundPacket::ChatMessage { message, position: _, sender: _ } => {
                 if message.contains("test path") {
                     let position = self.position.as_ref().unwrap();
-                    let position = (position.x.floor() as i32, position.y.floor() as i32, position.z.floor() as i32);
-                    if let Some(travel_mission) = TravelMission::new((-77, 89, 88), &self.map, position) {
-                        *self.mission.lock().unwrap() = Some(Box::new(travel_mission));
-                    }
+                    Path::new_find_path(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-92, 78, 112));
                 } else if message.contains("dig down") {
                     *self.mission.lock().unwrap() = Some(Box::new(DigDownMission::new(12)));
                 } else if message.contains("test inventory 1") {
