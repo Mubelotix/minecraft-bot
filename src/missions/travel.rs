@@ -6,18 +6,28 @@ use super::MissionResult;
 #[derive(Debug)]
 pub struct TravelMission {
     path: Vec<(i32, i32, i32)>,
+    destination: (i32,i32,i32),
+    stucked_detector: usize,
+    failed: bool,
 }
 
 impl TravelMission {
     pub fn new(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Self> {
         Some(Self {
             path: find_path(map, position, destination)?,
+            destination,
+            stucked_detector: 0,
+            failed: false,
         })
     }
 }
 
 impl super::Mission for TravelMission {
     fn execute(&mut self, bot: &mut Bot, _packets: &mut Vec<ServerboundPacket>) -> MissionResult {
+        if self.failed {
+            return MissionResult::Failed;
+        }
+
         if let Some(position) = bot.position.as_mut() {
             let ((x, z), jump) = {
                 let mut position = (position.x, position.y, position.z);
@@ -26,12 +36,28 @@ impl super::Mission for TravelMission {
                 let z = position.2.floor() as i32;
                 let mut jump = false;
 
+                if self.stucked_detector > 100 {
+                    warn!("Bot is stucked while traveling. Recalculating...");
+                    let new_path = match find_path(&bot.map, (x, y, z), self.destination) {
+                        Some(new_path) => new_path,
+                        None => {
+                            self.failed = true;
+                            warn!("Failed to find a new path");
+                            return MissionResult::Failed;
+                        }
+                    };
+                    self.path = new_path;
+                    self.stucked_detector = 0;
+                    return MissionResult::InProgress;
+                }
+
                 let next_position = match self.path.get(0) {
                     Some(next) => next,
                     None => return MissionResult::Done,
                 };
                 if next_position.0 == x && next_position.2 == z && (y - 2..=y).contains(&next_position.1) {
                     self.path.remove(0);
+                    self.stucked_detector = 0;
                     return MissionResult::InProgress;
                 }
 
@@ -71,6 +97,7 @@ impl super::Mission for TravelMission {
                     _ => {}
                 }
 
+                self.stucked_detector += 1;
                 ((position.0, position.2), jump)
             };
 
