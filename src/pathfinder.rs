@@ -71,25 +71,23 @@ impl Node {
             return;
         }
 
-        let open_nodes = RefCell::new(open_nodes);
-
-        let add_direct_neighbor = |x, z| -> bool {
+        let add_direct_neighbor = |x, z, open_nodes: &mut BinaryHeap<Node>| -> bool {
             if Node::check_direct_neighbor(map, x, self.y, z) {
-                open_nodes.borrow_mut().push(Node::new((x, self.y, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
+                open_nodes.push(Node::new((x, self.y, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
                 return true;
             }
             false
         };
 
-        let add_uphill_neighbor = |x, z| -> bool {
+        let add_uphill_neighbor = |x, z, open_nodes: &mut BinaryHeap<Node>| -> bool {
             if Node::check_uphill_neighbor(map, x, self.y, z, self.x, self.z) {
-                open_nodes.borrow_mut().push(Node::new((x, self.y + 1, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
+                open_nodes.push(Node::new((x, self.y + 1, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
                 return true;
             }
             false
         };
 
-        let add_downhill_neighbors = |x, z| -> bool {
+        let add_downhill_neighbors = |x, z, open_nodes: &mut BinaryHeap<Node>| -> bool {
             'height: for offset in 1..=3 {
                 for y in self.y - offset..=self.y + 1 {
                     if map.get_block(x, y, z).is_blocking() {
@@ -97,17 +95,18 @@ impl Node {
                     }
                 }
                 if map.get_block(x, self.y - 1 - offset, z).is_blocking() {
-                    open_nodes.borrow_mut().push(Node::new((x, self.y - offset, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
+                    open_nodes.push(Node::new((x, self.y - offset, z), (self.x, self.y, self.z), destination, self.g_cost + 10));
                     return true;
                 }
             }
             false
         };
 
-        add_direct_neighbor(self.x + 1, self.z) || add_uphill_neighbor(self.x + 1, self.z) || add_downhill_neighbors(self.x + 1, self.z);
-        add_direct_neighbor(self.x - 1, self.z) || add_uphill_neighbor(self.x - 1, self.z) || add_downhill_neighbors(self.x - 1, self.z);
-        add_direct_neighbor(self.x, self.z + 1) || add_uphill_neighbor(self.x, self.z + 1) || add_downhill_neighbors(self.x, self.z + 1);
-        add_direct_neighbor(self.x, self.z - 1) || add_uphill_neighbor(self.x, self.z - 1) || add_downhill_neighbors(self.x, self.z - 1);
+        let on = open_nodes;
+        add_direct_neighbor(self.x + 1, self.z, on) || add_uphill_neighbor(self.x + 1, self.z, on) || add_downhill_neighbors(self.x + 1, self.z, on);
+        add_direct_neighbor(self.x - 1, self.z, on) || add_uphill_neighbor(self.x - 1, self.z, on) || add_downhill_neighbors(self.x - 1, self.z, on);
+        add_direct_neighbor(self.x, self.z + 1, on) || add_uphill_neighbor(self.x, self.z + 1, on) || add_downhill_neighbors(self.x, self.z + 1, on);
+        add_direct_neighbor(self.x, self.z - 1, on) || add_uphill_neighbor(self.x, self.z - 1, on) || add_downhill_neighbors(self.x, self.z - 1, on);
 
         closed_nodes.push(self);
     }
