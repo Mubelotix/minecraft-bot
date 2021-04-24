@@ -55,7 +55,7 @@ impl super::Mission for TravelMission {
                     Some(next) => next,
                     None => return MissionResult::Done,
                 };
-                if next_position.0 == x && next_position.2 == z && (y - 2..=y).contains(&next_position.1) {
+                if next_position.0 == x && next_position.2 == z && next_position.1 >= y {
                     self.path.remove(0);
                     self.stucked_detector = 0;
                     return MissionResult::InProgress;
