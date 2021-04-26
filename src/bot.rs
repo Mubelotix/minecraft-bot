@@ -255,7 +255,7 @@ impl Bot {
                     },
             } => {
                 let (chunk_x, chunk_y, chunk_z) = MultiBlockChange::decode_chunk_section_position(chunk_section_position);
-                trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
+                //trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
                 for block in blocks.items {
                     let (block, block_x, block_y, block_z) = MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
                     self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
@@ -268,7 +268,7 @@ impl Bot {
                 let block_x = location.x.rem_euclid(16) as u8;
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
-                trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
+                //trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
                 self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
                     std::mem::transmute(block_state.0)
                 });
@@ -323,6 +323,9 @@ impl Bot {
             }
             ClientboundPacket::SpawnEntity { id, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z } => {
                 self.entities.handle_spawn_entity_packet(id.0, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z);
+            }
+            ClientboundPacket::EntityMetadata { entity_id, metadata } => {
+                self.entities.handle_entity_metadata_packet(entity_id.0, metadata);
             }
             ClientboundPacket::SpawnPlayer { id, uuid, x, y, z, yaw, pitch } => {
                 self.entities.handle_spawn_player_packet(id.0, uuid, x, y, z, yaw, pitch);

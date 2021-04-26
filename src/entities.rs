@@ -1,5 +1,5 @@
 use crate::*;
-use minecraft_format::{effect::Effect, ids::entities::Entity as EntityType, packets::Direction, paintings::Painting};
+use minecraft_format::{effect::Effect, ids::entities::Entity as EntityType, packets::Direction, paintings::Painting, entity::{EntityMetadata, EntityMetadataValue}};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::mpsc::Sender;
 
@@ -44,6 +44,7 @@ pub enum Entity {
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
         attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     Player {
         uuid: u128,
@@ -58,6 +59,7 @@ pub enum Entity {
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
         attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     ExperienceOrb {
         count: u16,
@@ -67,6 +69,7 @@ pub enum Entity {
         velocity_x: f64,
         velocity_y: f64,
         velocity_z: f64,
+        metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     Painting {
         uuid: u128,
@@ -75,6 +78,7 @@ pub enum Entity {
         y: i32,
         z: i32,
         direction: Direction,
+        metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     OtherEntity {
         uuid: u128,
@@ -91,6 +95,7 @@ pub enum Entity {
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
         attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        metadata: BTreeMap<u8, EntityMetadataValue>,
     },
 }
 
@@ -234,6 +239,14 @@ impl Entity {
             }
         }
     }
+
+    pub fn get_metadata(&self) -> &BTreeMap<u8, EntityMetadataValue> {
+        match self {
+            Entity::ExperienceOrb {metadata, ..} | Entity::LivingEntity {metadata, ..} | Entity::OtherEntity {metadata, .. } | Entity::Painting {metadata, ..} | Entity::Player {metadata, .. }  => {
+                metadata
+            }
+        }
+    }
 }
 
 pub struct Entities {
@@ -265,6 +278,7 @@ impl Entities {
                 effects: Vec::new(),
                 equipment: EntityEquipment::none(),
                 attributes: BTreeMap::new(),
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -301,6 +315,7 @@ impl Entities {
                 effects: Vec::new(),
                 equipment: EntityEquipment::none(),
                 attributes: BTreeMap::new(),
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -337,6 +352,7 @@ impl Entities {
                 effects: Vec::new(),
                 equipment: EntityEquipment::none(),
                 attributes: BTreeMap::new(),
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -352,6 +368,7 @@ impl Entities {
                 velocity_x: 0.0,
                 velocity_y: 0.0,
                 velocity_z: 0.0,
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -372,6 +389,7 @@ impl Entities {
                 effects: Vec::new(),
                 equipment: EntityEquipment::none(),
                 attributes: BTreeMap::new(),
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -386,6 +404,7 @@ impl Entities {
                 y: location.y as i32,
                 z: location.z,
                 direction,
+                metadata: BTreeMap::new(),
             },
         );
     }
@@ -453,6 +472,23 @@ impl Entities {
             }
         };
         entity.remove_effect(effect);
+    }
+
+    pub fn handle_entity_metadata_packet(&mut self, entity_id: i32, new_metadata: EntityMetadata) {
+        let entity = match self.entities.get_mut(&entity_id) {
+            Some(entity) => entity,
+            None => {
+                warn!("The entity does not exist (from entity metadata packet)");
+                return;
+            }
+        };
+        match entity {
+            Entity::ExperienceOrb {metadata, ..} | Entity::LivingEntity {metadata, ..} | Entity::OtherEntity {metadata, .. } | Entity::Painting {metadata, ..} | Entity::Player {metadata, .. }  => {
+                for (index, value) in new_metadata.items.into_iter() {
+                    metadata.insert(index, value);
+                }
+            }
+        }
     }
 
     pub fn handle_entity_velocity_packet(&mut self, entity_id: i32, velocity_x: i16, velocity_y: i16, velocity_z: i16) {
