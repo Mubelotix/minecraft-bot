@@ -270,6 +270,31 @@ impl Entities {
         }
     }
 
+    pub fn get_items(&self, filter: Option<&[Item]>) -> Vec<(i32, i32, i32)> {
+        let mut results = Vec::new();
+        for entity in self.entities.values() {
+            if let Entity::OtherEntity {entity_type, metadata, x, y, z, ..} = entity {
+                if *entity_type == EntityType::Item {
+                    if let Some(EntityMetadataValue::Slot{slot}) = metadata.get(&7) {
+                        if let Some(item) = &slot.item {
+                            match filter {
+                                Some(filter) => {
+                                    if filter.contains(&item.item_id) {
+                                        results.push((x.floor() as i32, y.floor() as i32, z.floor() as i32));
+                                    }
+                                }
+                                None => {
+                                    results.push((x.floor() as i32, y.floor() as i32, z.floor() as i32));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        results
+    }
+
     pub fn add_self(&mut self, entity_id: i32) {
         self.entities.insert(
             entity_id,

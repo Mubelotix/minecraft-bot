@@ -10,6 +10,9 @@ enum State {
     StartDigTree { x: i32, y: i32, z: i32 },
     ContinueDigTree { ticks: u8, x: i32, y: i32, z: i32 },
     FinishDigTree { x: i32, y: i32, z: i32 },
+    FindItems,
+    SelectItem,
+    MoveToItem {mission: TravelMission},
 
     Failed,
     Done,
@@ -20,6 +23,7 @@ use State::*;
 pub struct SettlementMission {
     state: State,
     trees: Option<Vec<(i32, i32, i32)>>,
+    items: Vec<(i32, i32, i32)>
 }
 
 const WOOD_ITEMS: [Item; 14] = [
@@ -50,6 +54,7 @@ impl SettlementMission {
         SettlementMission {
             state: CheckNeed,
             trees: None,
+            items: Vec::new()
         }
     }
 }
@@ -232,13 +237,39 @@ impl Mission for SettlementMission {
                             };
                         } else {
                             warn!("Failed to find path to tree but the destination is one block away and there should be no obstacle.");
-                            self.state = SelectTree;
+                            self.state = FindItems;
                         }
                     } else {
                         self.state = StartDigTree { x: *x, y: *y + 1, z: *z };
                     }
                 } else {
-                    self.state = SelectTree;
+                    self.state = FindItems;
+                }
+            }
+            FindItems => {
+                self.items = bot.entities.get_items(Some(&[Item::OakLog, Item::BirchLog]));
+                self.state = SelectItem;
+            }
+            SelectItem => {
+                loop {
+                    let item = match self.items.pop() {
+                        Some(item) => item,
+                        None => {
+                            self.state = SelectTree;
+                            break;
+                        }
+                    };
+                    if let Some(mission) = TravelMission::new(&bot.map, (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32), item) {
+                        self.state = MoveToItem {mission};
+                        break;
+                    }
+                }
+            } 
+            MoveToItem {mission} => {
+                match mission.execute(bot, packets) {
+                    MissionResult::InProgress => (),
+                    MissionResult::Done => self.state = SelectItem,
+                    MissionResult::Failed => self.state = SelectItem,
                 }
             }
 
