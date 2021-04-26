@@ -285,7 +285,7 @@ impl Bot {
                     debug!(
                         "{} wood blocks found",
                         self.map
-                            .search_blocks(position.x as i32, position.z as i32, 10, &[Block::OakLog, Block::BirchLog])
+                            .search_blocks(position.x as i32, position.z as i32, &[Block::OakLog, Block::BirchLog], 3000, 16*16)
                             .len()
                     );
                 } else if message.contains("settle") {

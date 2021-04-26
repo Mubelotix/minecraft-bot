@@ -91,7 +91,7 @@ impl Mission for SettlementMission {
             FindTrees => {
                 let wood_blocks = bot
                     .map
-                    .search_blocks(position.0 as i32, position.2 as i32, 6, &[Block::OakLog, Block::BirchLog]);
+                    .search_blocks(position.0 as i32, position.2 as i32, &[Block::OakLog, Block::BirchLog], 500, 32*32);
                 let mut trees = HashMap::new();
                 for wood_block in wood_blocks {
                     if let Some(previous_tree) = trees.get(&(wood_block.0, wood_block.2)) {
