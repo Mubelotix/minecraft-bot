@@ -1,6 +1,6 @@
 use crate::map::Map;
 use log::*;
-use std::collections::{BinaryHeap};
+use std::collections::BinaryHeap;
 
 // todo consider some blocks as liquid and some as transparent
 

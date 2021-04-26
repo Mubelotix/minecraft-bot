@@ -1,10 +1,10 @@
+use crate::map::Map;
 use log::*;
 use minecraft_format::{
+    ids::{blocks::Block, items::Item},
     packets::{play_serverbound::ServerboundPacket, serializer::MinecraftPacketPart, Array},
     slots::Slot,
-    ids::{blocks::Block, items::Item},
 };
-use crate::map::Map;
 use std::{collections::BTreeMap, sync::mpsc::Sender};
 
 pub struct PlayerInventory {
@@ -155,7 +155,7 @@ impl PlayerInventory {
             item => {
                 warn!("Unknown item {:?} after block placement. Using Stone for compatibility", item);
                 Block::Stone
-            },
+            }
         };
 
         match item.as_ref().unwrap().item_count.0 {

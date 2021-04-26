@@ -104,7 +104,8 @@ impl Map {
             return true;
         }
         if let Some(x2) = x2 {
-            if self.get_block(x2, y, z1).is_blocking() && self.get_block(x2, y + 1, z1).is_air_block() && self.get_block(x2, y + 2, z1).is_air_block() {
+            if self.get_block(x2, y, z1).is_blocking() && self.get_block(x2, y + 1, z1).is_air_block() && self.get_block(x2, y + 2, z1).is_air_block()
+            {
                 return true;
             }
             if let Some(z2) = z2 {
@@ -117,7 +118,8 @@ impl Map {
             }
         }
         if let Some(z2) = z2 {
-            if self.get_block(x1, y, z2).is_blocking() && self.get_block(x1, y + 1, z2).is_air_block() && self.get_block(x1, y + 2, z2).is_air_block() {
+            if self.get_block(x1, y, z2).is_blocking() && self.get_block(x1, y + 1, z2).is_air_block() && self.get_block(x1, y + 2, z2).is_air_block()
+            {
                 return true;
             }
         }
@@ -181,7 +183,6 @@ impl Map {
         } else {
             None
         };
-
 
         let ax = x;
         let bx = x.floor() + 1.0;
@@ -380,9 +381,9 @@ impl Map {
         let chunk_z = (z - z_within_chunk) / 16;
 
         let mut results = Vec::new();
-        for chunk_x in chunk_x-chunk_radius..=chunk_x+chunk_radius {
+        for chunk_x in chunk_x - chunk_radius..=chunk_x + chunk_radius {
             for chunk_y in 0..16 {
-                for chunk_z in chunk_z-chunk_radius..=chunk_z+chunk_radius {
+                for chunk_z in chunk_z - chunk_radius..=chunk_z + chunk_radius {
                     if let Some(chunk_column) = self.chunk_columns.get(&(chunk_x, chunk_z)) {
                         if let Some(Some(chunk_section)) = chunk_column.get(chunk_y as usize) {
                             if let Some(palette) = chunk_section.palette.as_ref() {
@@ -401,8 +402,8 @@ impl Map {
 
                                 for (idx, block) in chunk_section.blocks.iter().enumerate() {
                                     if searched_ids.contains(block) {
-                                        let z_and_x = idx.rem_euclid(16*16);
-                                        let y = (idx - z_and_x) / (16*16);
+                                        let z_and_x = idx.rem_euclid(16 * 16);
+                                        let y = (idx - z_and_x) / (16 * 16);
                                         let x = z_and_x.rem_euclid(16);
                                         let z = (z_and_x - x) / 16;
                                         results.push((chunk_x * 16 + x as i32, chunk_y * 16 + y as i32, chunk_z * 16 + z as i32));
@@ -412,8 +413,8 @@ impl Map {
                                 for (idx, block) in chunk_section.blocks.iter().enumerate() {
                                     if let Some(block) = Block::from_id(*block) {
                                         if searched_blocks.contains(&block) {
-                                            let z_and_x = idx.rem_euclid(16*16);
-                                            let y = (idx - z_and_x) / (16*16);
+                                            let z_and_x = idx.rem_euclid(16 * 16);
+                                            let y = (idx - z_and_x) / (16 * 16);
                                             let x = z_and_x.rem_euclid(16);
                                             let z = (z_and_x - x) / 16;
                                             results.push((chunk_x * 16 + x as i32, chunk_y * 16 + y as i32, chunk_z * 16 + z as i32));

@@ -1,12 +1,12 @@
+use super::MissionResult;
 use crate::*;
 use minecraft_format::packets::play_serverbound::ServerboundPacket;
 use std::cmp::Ordering;
-use super::MissionResult;
 
 #[derive(Debug)]
 pub struct TravelMission {
     path: Vec<(i32, i32, i32)>,
-    destination: (i32,i32,i32),
+    destination: (i32, i32, i32),
     stucked_detector: usize,
     failed: bool,
 }

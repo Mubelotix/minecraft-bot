@@ -26,8 +26,8 @@ impl DigDownMission {
 #[derive(Debug)]
 enum DigDownState {
     MoveToBlockCenter,
-    FindTool {submission: MoveItemToHotbar},
-    FindBlocks {submission: MoveItemToHotbar},
+    FindTool { submission: MoveItemToHotbar },
+    FindBlocks { submission: MoveItemToHotbar },
     StartDigging,
     WaitDigging { ticks: usize },
     FinishDigging,
@@ -83,24 +83,28 @@ impl super::Mission for DigDownMission {
                 bot.windows.player_inventory.change_held_item(0);
 
                 if done {
-                    self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
+                    self.state = DigDownState::FindTool {
+                        submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)),
+                    };
                 }
             }
-            DigDownState::FindTool {submission} => {
-                match submission.execute(bot, packets) {
-                    MissionResult::Done | MissionResult::Failed => self.state = DigDownState::FindBlocks{submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Cobblestone, Item::Dirt], None) },
-                    MissionResult::InProgress => (),
+            DigDownState::FindTool { submission } => match submission.execute(bot, packets) {
+                MissionResult::Done | MissionResult::Failed => {
+                    self.state = DigDownState::FindBlocks {
+                        submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Cobblestone, Item::Dirt], None),
+                    }
                 }
-            }
-            DigDownState::FindBlocks {submission} => {
-                match submission.execute(bot, packets) {
-                    MissionResult::Done => self.state = DigDownState::StartDigging,
-                    MissionResult::Failed => self.state = {
+                MissionResult::InProgress => (),
+            },
+            DigDownState::FindBlocks { submission } => match submission.execute(bot, packets) {
+                MissionResult::Done => self.state = DigDownState::StartDigging,
+                MissionResult::Failed => {
+                    self.state = {
                         warn!("Could not find blocks");
                         DigDownState::StartDigging
-                    },
-                    MissionResult::InProgress => (),
+                    }
                 }
+                MissionResult::InProgress => (),
             },
             DigDownState::StartDigging => {
                 if position.y.floor() as isize <= self.until_block as isize {
@@ -164,20 +168,20 @@ impl super::Mission for DigDownMission {
                 bot.windows.player_inventory.use_held_item(1);
 
                 let mut blocks_to_replace = Vec::new();
-                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y-1, z)) {
-                    blocks_to_replace.push((x, y-1, z));
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y - 1, z)) {
+                    blocks_to_replace.push((x, y - 1, z));
                 }
-                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x+1, y, z)) {
-                    blocks_to_replace.push((x+1, y, z));
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x + 1, y, z)) {
+                    blocks_to_replace.push((x + 1, y, z));
                 }
-                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x-1, y, z)) {
-                    blocks_to_replace.push((x-1, y, z));
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x - 1, y, z)) {
+                    blocks_to_replace.push((x - 1, y, z));
                 }
-                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z+1)) {
-                    blocks_to_replace.push((x, y, z+1));
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z + 1)) {
+                    blocks_to_replace.push((x, y, z + 1));
                 }
-                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z-1)) {
-                    blocks_to_replace.push((x, y, z-1));
+                if BLOCKS_TO_BE_REPLACED.contains(&bot.map.get_block(x, y, z - 1)) {
+                    blocks_to_replace.push((x, y, z - 1));
                 }
 
                 for (x, y, z) in blocks_to_replace {
@@ -186,7 +190,9 @@ impl super::Mission for DigDownMission {
                     }
                 }
 
-                self.state = DigDownState::FindTool {submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)) };
+                self.state = DigDownState::FindTool {
+                    submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)),
+                };
             }
 
             DigDownState::Done => {

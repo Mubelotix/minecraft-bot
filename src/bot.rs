@@ -1,10 +1,5 @@
 use crate::*;
-use minecraft_format::{
-    blocks::MultiBlockChange,
-    chat::ChatMode,
-    slots::MainHand,
-    MinecraftPacketPart,
-};
+use minecraft_format::{blocks::MultiBlockChange, chat::ChatMode, slots::MainHand, MinecraftPacketPart};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -258,7 +253,8 @@ impl Bot {
                 //trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
                 for block in blocks.items {
                     let (block, block_x, block_y, block_z) = MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
-                    self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
+                    self.map
+                        .set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
                 }
             }
             ClientboundPacket::BlockChange { location, block_state } => {
@@ -269,11 +265,16 @@ impl Bot {
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
                 //trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
-                self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
-                    std::mem::transmute(block_state.0)
-                });
+                self.map
+                    .set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
+                        std::mem::transmute(block_state.0)
+                    });
             }
-            ClientboundPacket::ChatMessage { message, position: _, sender: _ } => {
+            ClientboundPacket::ChatMessage {
+                message,
+                position: _,
+                sender: _,
+            } => {
                 if message.contains("test path") {
                     let position = self.position.as_ref().unwrap();
                     if let Some(mission) = TravelMission::new(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-222, 75, 54)) {
@@ -281,13 +282,22 @@ impl Bot {
                     }
                 } else if message.contains("find wood") {
                     let position = self.position.as_ref().unwrap();
-                    debug!("{} wood blocks found", self.map.search_blocks(position.x as i32, position.z as i32, 10, &[Block::OakLog, Block::BirchLog]).len());
+                    debug!(
+                        "{} wood blocks found",
+                        self.map
+                            .search_blocks(position.x as i32, position.z as i32, 10, &[Block::OakLog, Block::BirchLog])
+                            .len()
+                    );
                 } else if message.contains("settle") {
                     *self.mission.lock().unwrap() = Some(Box::new(SettlementMission::new()));
                 } else if message.contains("dig down") {
                     *self.mission.lock().unwrap() = Some(Box::new(DigDownMission::new(12)));
                 } else if message.contains("test inventory 1") {
-                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_format::ids::items::Item::Sand], Some(3))));
+                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(
+                        1,
+                        vec![minecraft_format::ids::items::Item::Sand],
+                        Some(3),
+                    )));
                 } else if message.contains("test inventory 2") {
                     *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_format::ids::items::Item::Sand], None)));
                 }
@@ -309,61 +319,154 @@ impl Bot {
             } => {
                 self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
             }
-            ClientboundPacket::WindowConfirmation { window_id, action_id, accepted } => {
+            ClientboundPacket::WindowConfirmation {
+                window_id,
+                action_id,
+                accepted,
+            } => {
                 self.windows.handle_window_confirmation_packet(window_id, action_id, accepted);
                 if !accepted {
-                    responses.push(ServerboundPacket::WindowConfirmation{window_id, action_id, accepted})
+                    responses.push(ServerboundPacket::WindowConfirmation {
+                        window_id,
+                        action_id,
+                        accepted,
+                    })
                 }
             }
             ClientboundPacket::CloseWindow { window_id } => {
                 self.windows.handle_close_window_packet(window_id);
             }
-            ClientboundPacket::HeldItemChange {slot} => {
+            ClientboundPacket::HeldItemChange { slot } => {
                 self.windows.player_inventory.handle_held_item_change_packet(slot);
             }
-            ClientboundPacket::SpawnEntity { id, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z } => {
-                self.entities.handle_spawn_entity_packet(id.0, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z);
+            ClientboundPacket::SpawnEntity {
+                id,
+                uuid,
+                entity_type,
+                x,
+                y,
+                z,
+                pitch,
+                yaw,
+                data,
+                velocity_x,
+                velocity_y,
+                velocity_z,
+            } => {
+                self.entities
+                    .handle_spawn_entity_packet(id.0, uuid, entity_type, x, y, z, pitch, yaw, data, velocity_x, velocity_y, velocity_z);
             }
             ClientboundPacket::EntityMetadata { entity_id, metadata } => {
                 self.entities.handle_entity_metadata_packet(entity_id.0, metadata);
             }
-            ClientboundPacket::SpawnPlayer { id, uuid, x, y, z, yaw, pitch } => {
+            ClientboundPacket::SpawnPlayer {
+                id,
+                uuid,
+                x,
+                y,
+                z,
+                yaw,
+                pitch,
+            } => {
                 self.entities.handle_spawn_player_packet(id.0, uuid, x, y, z, yaw, pitch);
             }
-            ClientboundPacket::SpawnLivingEntity { id, uuid, entity_type, x, y, z, yaw, pitch, head_pitch, velocity_x, velocity_y, velocity_z } => {
-                self.entities.handle_spawn_living_entity_packet(id.0, uuid, entity_type, x, y, z, yaw, pitch, head_pitch, velocity_x, velocity_y, velocity_z);
+            ClientboundPacket::SpawnLivingEntity {
+                id,
+                uuid,
+                entity_type,
+                x,
+                y,
+                z,
+                yaw,
+                pitch,
+                head_pitch,
+                velocity_x,
+                velocity_y,
+                velocity_z,
+            } => {
+                self.entities.handle_spawn_living_entity_packet(
+                    id.0,
+                    uuid,
+                    entity_type,
+                    x,
+                    y,
+                    z,
+                    yaw,
+                    pitch,
+                    head_pitch,
+                    velocity_x,
+                    velocity_y,
+                    velocity_z,
+                );
             }
             ClientboundPacket::SpawnExperienceOrb { id, x, y, z, count } => {
                 self.entities.handle_spawn_experience_orb_packet(id.0, x, y, z, count);
             }
-            ClientboundPacket::SpawnPainting { id, uuid, motive, location, direction } => {
+            ClientboundPacket::SpawnPainting {
+                id,
+                uuid,
+                motive,
+                location,
+                direction,
+            } => {
                 self.entities.handle_spawn_painting_packet(id.0, uuid, motive, location, direction);
             }
             ClientboundPacket::EntityAnimation { .. } | ClientboundPacket::EntityStatus { .. } | ClientboundPacket::EntityHeadLook { .. } => {
                 // Unsupported as it is primarly used in animations
             }
-            ClientboundPacket::EntityPosition { entity_id, delta_x, delta_y, delta_z, on_ground } => {
-                self.entities.handle_entity_position_packet(entity_id.0, delta_x, delta_y, delta_z, on_ground);
+            ClientboundPacket::EntityPosition {
+                entity_id,
+                delta_x,
+                delta_y,
+                delta_z,
+                on_ground,
+            } => {
+                self.entities
+                    .handle_entity_position_packet(entity_id.0, delta_x, delta_y, delta_z, on_ground);
             }
-            ClientboundPacket::EntityPositionAndRotation { entity_id, delta_x, delta_y, delta_z, yaw, pitch, on_ground } => {
-                self.entities.handle_entity_position_and_rotation_packet(entity_id.0, delta_x, delta_y, delta_z, yaw, pitch, on_ground);
+            ClientboundPacket::EntityPositionAndRotation {
+                entity_id,
+                delta_x,
+                delta_y,
+                delta_z,
+                yaw,
+                pitch,
+                on_ground,
+            } => {
+                self.entities
+                    .handle_entity_position_and_rotation_packet(entity_id.0, delta_x, delta_y, delta_z, yaw, pitch, on_ground);
             }
             ClientboundPacket::EntityMovement { entity_id } => {
                 self.entities.handle_entity_movement_packet(entity_id.0);
             }
             ClientboundPacket::DestoryEntities { entity_ids } => {
-                self.entities.handle_destroy_entities_packet(entity_ids.items.iter().map(|varint| varint.0).collect());
+                self.entities
+                    .handle_destroy_entities_packet(entity_ids.items.iter().map(|varint| varint.0).collect());
             }
             ClientboundPacket::RemoveEntityEffect { entity_id, effect } => {
                 self.entities.handle_remove_entity_effect_packet(entity_id.0, effect);
             }
-            ClientboundPacket::EntityVelocity { entity_id, velocity_x, velocity_y, velocity_z } => {
-                self.entities.handle_entity_velocity_packet(entity_id.0, velocity_x, velocity_y, velocity_z);
+            ClientboundPacket::EntityVelocity {
+                entity_id,
+                velocity_x,
+                velocity_y,
+                velocity_z,
+            } => {
+                self.entities
+                    .handle_entity_velocity_packet(entity_id.0, velocity_x, velocity_y, velocity_z);
             }
             ClientboundPacket::EntityEquipment { entity_id, equipment } => {
                 self.entities.handle_entity_equipement_packet(entity_id.0, equipment);
             }
-            ClientboundPacket::TeleportEntity { entity_id, x, y, z, yaw, pitch, on_ground } => {
+            ClientboundPacket::TeleportEntity {
+                entity_id,
+                x,
+                y,
+                z,
+                yaw,
+                pitch,
+                on_ground,
+            } => {
                 self.entities.handle_teleport_entity_packet(entity_id.0, x, y, z, yaw, pitch, on_ground);
             }
             ClientboundPacket::EntityAttributes { entity_id, attributes } => {

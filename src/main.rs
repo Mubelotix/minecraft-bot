@@ -13,7 +13,7 @@ use bot::Bot;
 
 pub use log::*;
 pub use minecraft_format::{
-    ids::{blocks::Block, items::Item, entities::Entity},
+    ids::{blocks::Block, entities::Entity, items::Item},
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position, VarInt},
     slots::Slot,
 };

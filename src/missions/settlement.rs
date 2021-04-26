@@ -215,19 +215,27 @@ impl Mission for SettlementMission {
                 bot.windows.player_inventory.use_held_item(1);
 
                 if [Block::OakLog, Block::BirchLog].contains(&bot.map.get_block(*x, *y + 1, *z)) {
-                    if (position.0.floor() as i32 != *x || position.2.floor() as i32 != *z) && bot.map.get_block(*x, *y-1, *z).is_air_block() && bot.map.get_block(*x, *y-2, *z).is_blocking() {
+                    if (position.0.floor() as i32 != *x || position.2.floor() as i32 != *z)
+                        && bot.map.get_block(*x, *y - 1, *z).is_air_block()
+                        && bot.map.get_block(*x, *y - 2, *z).is_blocking()
+                    {
                         if let Some(mission) = TravelMission::new(
                             &bot.map,
                             (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                            (*x, *y-1, *z),
+                            (*x, *y - 1, *z),
                         ) {
-                            self.state = MoveToTree { mission, x: *x, y: *y+1, z: *z };
+                            self.state = MoveToTree {
+                                mission,
+                                x: *x,
+                                y: *y + 1,
+                                z: *z,
+                            };
                         } else {
                             warn!("Failed to find path to tree but the destination is one block away and there should be no obstacle.");
                             self.state = SelectTree;
                         }
                     } else {
-                        self.state = StartDigTree {x: *x, y: *y+1, z: *z};
+                        self.state = StartDigTree { x: *x, y: *y + 1, z: *z };
                     }
                 } else {
                     self.state = SelectTree;

@@ -2,12 +2,12 @@ use minecraft_format::packets::play_serverbound::ServerboundPacket;
 
 pub mod dig_down;
 pub mod inventory;
-pub mod travel;
 pub mod settlement;
+pub mod travel;
 pub use dig_down::DigDownMission;
 pub use inventory::*;
-pub use travel::TravelMission;
 pub use settlement::*;
+pub use travel::TravelMission;
 
 use crate::bot::Bot;
 

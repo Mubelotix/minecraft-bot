@@ -1,5 +1,11 @@
 use crate::*;
-use minecraft_format::{effect::Effect, ids::entities::Entity as EntityType, packets::Direction, paintings::Painting, entity::{EntityMetadata, EntityMetadataValue}};
+use minecraft_format::{
+    effect::Effect,
+    entity::{EntityMetadata, EntityMetadataValue},
+    ids::entities::Entity as EntityType,
+    packets::Direction,
+    paintings::Painting,
+};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::mpsc::Sender;
 
@@ -242,9 +248,11 @@ impl Entity {
 
     pub fn get_metadata(&self) -> &BTreeMap<u8, EntityMetadataValue> {
         match self {
-            Entity::ExperienceOrb {metadata, ..} | Entity::LivingEntity {metadata, ..} | Entity::OtherEntity {metadata, .. } | Entity::Painting {metadata, ..} | Entity::Player {metadata, .. }  => {
-                metadata
-            }
+            Entity::ExperienceOrb { metadata, .. }
+            | Entity::LivingEntity { metadata, .. }
+            | Entity::OtherEntity { metadata, .. }
+            | Entity::Painting { metadata, .. }
+            | Entity::Player { metadata, .. } => metadata,
         }
     }
 }
@@ -483,7 +491,11 @@ impl Entities {
             }
         };
         match entity {
-            Entity::ExperienceOrb {metadata, ..} | Entity::LivingEntity {metadata, ..} | Entity::OtherEntity {metadata, .. } | Entity::Painting {metadata, ..} | Entity::Player {metadata, .. }  => {
+            Entity::ExperienceOrb { metadata, .. }
+            | Entity::LivingEntity { metadata, .. }
+            | Entity::OtherEntity { metadata, .. }
+            | Entity::Painting { metadata, .. }
+            | Entity::Player { metadata, .. } => {
                 for (index, value) in new_metadata.items.into_iter() {
                     metadata.insert(index, value);
                 }
