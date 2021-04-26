@@ -137,6 +137,7 @@ impl Mission for SettlementMission {
                                 &bot.map,
                                 (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
                                 (x - 1, y, z),
+                                5000,
                             ) {
                                 self.state = MoveToTree { mission, x, y, z };
                             }
@@ -150,6 +151,7 @@ impl Mission for SettlementMission {
                                 &bot.map,
                                 (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
                                 (x + 1, y, z),
+                                5000,
                             ) {
                                 self.state = MoveToTree { mission, x, y, z };
                             }
@@ -163,6 +165,7 @@ impl Mission for SettlementMission {
                                 &bot.map,
                                 (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
                                 (x, y, z - 1),
+                                5000,
                             ) {
                                 self.state = MoveToTree { mission, x, y, z };
                             }
@@ -176,6 +179,7 @@ impl Mission for SettlementMission {
                                 &bot.map,
                                 (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
                                 (x, y, z + 1),
+                                5000,
                             ) {
                                 self.state = MoveToTree { mission, x, y, z };
                             }
@@ -228,6 +232,7 @@ impl Mission for SettlementMission {
                             &bot.map,
                             (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
                             (*x, *y - 1, *z),
+                            25,
                         ) {
                             self.state = MoveToTree {
                                 mission,
@@ -259,7 +264,7 @@ impl Mission for SettlementMission {
                             break;
                         }
                     };
-                    if let Some(mission) = TravelMission::new(&bot.map, (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32), item) {
+                    if let Some(mission) = TravelMission::new(&bot.map, (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32), item, 3000) {
                         self.state = MoveToItem {mission};
                         break;
                     }

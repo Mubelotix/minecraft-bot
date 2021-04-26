@@ -116,7 +116,7 @@ impl std::cmp::Ord for Node {
     }
 }
 
-pub fn find_path(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Vec<(i32, i32, i32)>> {
+pub fn find_path(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32), maximum_work_allowed: usize) -> Option<Vec<(i32, i32, i32)>> {
     let mut closed_nodes: Vec<Node> = Vec::new();
     let mut open_nodes: BinaryHeap<Node> = BinaryHeap::new();
     open_nodes.push(Node::new(position, destination, position, 0));
@@ -154,8 +154,11 @@ pub fn find_path(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i
         node.close(&map, destination, &mut closed_nodes, &mut open_nodes);
 
         counter += 1;
-        if counter > 7500 {
-            warn!("Could not find the destination in time. {}ms used", start_instant.elapsed().as_millis());
+        if counter > maximum_work_allowed {
+            let time = start_instant.elapsed().as_millis();
+            if time >= 20 {
+                warn!("Could not find the destination in time. {}ms used over {} pathfinding work units", start_instant.elapsed().as_millis(), maximum_work_allowed);
+            }
             return None;
         }
     }

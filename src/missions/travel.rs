@@ -9,15 +9,17 @@ pub struct TravelMission {
     destination: (i32, i32, i32),
     stucked_detector: usize,
     failed: bool,
+    maximum_work_allowed: usize,
 }
 
 impl TravelMission {
-    pub fn new(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32)) -> Option<Self> {
+    pub fn new(map: &Map, position: (i32, i32, i32), destination: (i32, i32, i32), maximum_work_allowed: usize) -> Option<Self> {
         Some(Self {
-            path: find_path(map, position, destination)?,
+            path: find_path(map, position, destination, maximum_work_allowed)?,
             destination,
             stucked_detector: 0,
             failed: false,
+            maximum_work_allowed,
         })
     }
 }
@@ -38,7 +40,7 @@ impl super::Mission for TravelMission {
 
                 if self.stucked_detector > 100 {
                     warn!("Bot is stucked while traveling. Recalculating...");
-                    let new_path = match find_path(&bot.map, (x, y, z), self.destination) {
+                    let new_path = match find_path(&bot.map, (x, y, z), self.destination, self.maximum_work_allowed) {
                         Some(new_path) => new_path,
                         None => {
                             self.failed = true;

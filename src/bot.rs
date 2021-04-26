@@ -277,7 +277,7 @@ impl Bot {
             } => {
                 if message.contains("test path") {
                     let position = self.position.as_ref().unwrap();
-                    if let Some(mission) = TravelMission::new(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-222, 75, 54)) {
+                    if let Some(mission) = TravelMission::new(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-222, 75, 54), 7500) {
                         *self.mission.lock().unwrap() = Some(Box::new(mission));
                     }
                 } else if message.contains("find wood") {
