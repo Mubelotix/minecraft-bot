@@ -81,9 +81,9 @@ impl Map {
     pub fn is_on_ground(&self, x: f64, y: f64, z: f64) -> bool {
         let x_floor = x.floor();
         let x1 = x_floor as i32;
-        let x2 = if x - x_floor > 0.7 {
+        let x2 = if x - x_floor > 0.705 {
             Some(x1 + 1)
-        } else if x - x_floor < 0.3 {
+        } else if x - x_floor < 0.295 {
             Some(x1 - 1)
         } else {
             None
@@ -91,9 +91,9 @@ impl Map {
 
         let z_floor = z.floor();
         let z1 = z_floor as i32;
-        let z2 = if z - z_floor > 0.7 {
+        let z2 = if z - z_floor > 0.705 {
             Some(z1 + 1)
-        } else if z - z_floor < 0.3 {
+        } else if z - z_floor < 0.295 {
             Some(z1 - 1)
         } else {
             None
@@ -371,5 +371,61 @@ impl Map {
     pub fn set_block(&mut self, x: i32, y: i32, z: i32, block: Block) {
         let block_state_id = block.get_default_state_id();
         self.set_block_state(x, y, z, block_state_id)
+    }
+
+    pub fn search_blocks(&self, x: i32, z: i32, chunk_radius: i32, searched_blocks: &[Block]) -> Vec<(i32, i32, i32)> {
+        let x_within_chunk = x.rem_euclid(16);
+        let z_within_chunk = z.rem_euclid(16);
+        let chunk_x = (x - x_within_chunk) / 16;
+        let chunk_z = (z - z_within_chunk) / 16;
+
+        let mut results = Vec::new();
+        for chunk_x in chunk_x-chunk_radius..=chunk_x+chunk_radius {
+            for chunk_y in 0..16 {
+                for chunk_z in chunk_z-chunk_radius..=chunk_z+chunk_radius {
+                    if let Some(chunk_column) = self.chunk_columns.get(&(chunk_x, chunk_z)) {
+                        if let Some(Some(chunk_section)) = chunk_column.get(chunk_y as usize) {
+                            if let Some(palette) = chunk_section.palette.as_ref() {
+                                let mut searched_ids = Vec::new();
+                                for contained_block_state in palette {
+                                    if let Some(block) = Block::from_state_id(*contained_block_state) {
+                                        if searched_blocks.contains(&block) {
+                                            searched_ids.push(*contained_block_state);
+                                        }
+                                    }
+                                }
+
+                                if searched_ids.is_empty() {
+                                    continue;
+                                }
+
+                                for (idx, block) in chunk_section.blocks.iter().enumerate() {
+                                    if searched_ids.contains(block) {
+                                        let z_and_x = idx.rem_euclid(16*16);
+                                        let y = (idx - z_and_x) / (16*16);
+                                        let x = z_and_x.rem_euclid(16);
+                                        let z = (z_and_x - x) / 16;
+                                        results.push((chunk_x * 16 + x as i32, chunk_y * 16 + y as i32, chunk_z * 16 + z as i32));
+                                    }
+                                }
+                            } else {
+                                for (idx, block) in chunk_section.blocks.iter().enumerate() {
+                                    if let Some(block) = Block::from_id(*block) {
+                                        if searched_blocks.contains(&block) {
+                                            let z_and_x = idx.rem_euclid(16*16);
+                                            let y = (idx - z_and_x) / (16*16);
+                                            let x = z_and_x.rem_euclid(16);
+                                            let z = (z_and_x - x) / 16;
+                                            results.push((chunk_x * 16 + x as i32, chunk_y * 16 + y as i32, chunk_z * 16 + z as i32));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        results
     }
 }
