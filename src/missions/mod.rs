@@ -3,9 +3,11 @@ use minecraft_format::packets::play_serverbound::ServerboundPacket;
 pub mod dig_down;
 pub mod inventory;
 pub mod travel;
+pub mod settlement;
 pub use dig_down::DigDownMission;
 pub use inventory::*;
 pub use travel::TravelMission;
+pub use settlement::*;
 
 use crate::bot::Bot;
 
