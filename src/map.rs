@@ -1,6 +1,6 @@
 use log::*;
-use minecraft_format::{
-    chunk::{ChunkData, ChunkSection},
+use minecraft_protocol::{
+    components::chunk::{ChunkData, ChunkSection},
     ids::blocks::Block,
 };
 use std::collections::BTreeMap;

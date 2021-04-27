@@ -1,4 +1,4 @@
-use minecraft_format::packets::play_serverbound::ServerboundPacket;
+use minecraft_protocol::packets::play_serverbound::ServerboundPacket;
 
 pub mod dig_down;
 pub mod inventory;

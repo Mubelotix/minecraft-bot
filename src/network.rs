@@ -1,4 +1,4 @@
-use minecraft_format::{network::*, *};
+use minecraft_protocol::{network::*, *};
 use std::{net::TcpStream, sync::mpsc};
 
 fn receive_packets(hidden_sender: mpsc::Sender<Vec<u8>>, stream: TcpStream) {
@@ -20,11 +20,11 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
     let mut stream = TcpStream::connect(format!("{}:{}", addr, port)).unwrap();
     send_packet(
         &mut stream,
-        minecraft_format::packets::handshake::ServerboundPacket::Hello {
+        minecraft_protocol::packets::handshake::ServerboundPacket::Hello {
             protocol_version: 754.into(),
             server_address: addr,
             server_port: port,
-            next_state: minecraft_format::packets::ConnectionState::Login,
+            next_state: minecraft_protocol::packets::ConnectionState::Login,
         }
         .serialize_minecraft_packet()
         .unwrap(),
@@ -35,7 +35,7 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
 
     send_packet(
         &mut stream,
-        minecraft_format::packets::login::ServerboundPacket::LoginStart { username }
+        minecraft_protocol::packets::login::ServerboundPacket::LoginStart { username }
             .serialize_minecraft_packet()
             .unwrap(),
         None,
@@ -44,10 +44,10 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
     .unwrap();
 
     let response = read_packet(&stream, None, None).unwrap();
-    let response_packet = minecraft_format::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&response).unwrap();
+    let response_packet = minecraft_protocol::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&response).unwrap();
     assert!(matches!(
         response_packet,
-        minecraft_format::packets::login::ClientboundPacket::LoginSuccess { .. }
+        minecraft_protocol::packets::login::ClientboundPacket::LoginSuccess { .. }
     ));
 
     let stream2 = stream.try_clone().unwrap();

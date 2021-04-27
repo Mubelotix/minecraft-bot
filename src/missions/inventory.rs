@@ -1,7 +1,7 @@
 use super::MissionResult;
 use crate::missions::Mission;
 use log::*;
-use minecraft_format::{ids::items::Item, packets::play_serverbound::ServerboundPacket};
+use minecraft_protocol::{ids::items::Item, packets::play_serverbound::ServerboundPacket};
 
 #[derive(Debug)]
 pub struct MoveItemToHotbar {

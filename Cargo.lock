@@ -133,18 +133,7 @@ dependencies = [
  "array-macro",
  "env_logger",
  "log",
- "minecraft-format",
-]
-
-[[package]]
-name = "minecraft-format"
-version = "0.1.0"
-dependencies = [
- "convert_case",
- "minecraft-packet-derive",
- "minreq",
- "serde",
- "serde_json",
+ "minecraft-protocol",
 ]
 
 [[package]]
@@ -153,6 +142,17 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "minecraft-protocol"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "minecraft-packet-derive",
+ "minreq",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

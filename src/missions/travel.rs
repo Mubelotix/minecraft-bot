@@ -1,6 +1,6 @@
 use super::MissionResult;
 use crate::*;
-use minecraft_format::packets::play_serverbound::ServerboundPacket;
+use minecraft_protocol::packets::play_serverbound::ServerboundPacket;
 use std::cmp::Ordering;
 
 #[derive(Debug)]

@@ -12,10 +12,10 @@ pub mod pathfinder;
 use bot::Bot;
 
 pub use log::*;
-pub use minecraft_format::{
+pub use minecraft_protocol::{
     ids::{blocks::Block, entities::Entity, items::Item},
     packets::{play_clientbound::ClientboundPacket, play_serverbound::ServerboundPacket, Position, VarInt},
-    slots::Slot,
+    components::slots::Slot,
 };
 pub use {bot::*, entities::*, inventory::*, map::*, missions::*, pathfinder::*};
 

@@ -1,5 +1,5 @@
 use crate::*;
-use minecraft_format::{blocks::MultiBlockChange, chat::ChatMode, slots::MainHand, MinecraftPacketPart};
+use minecraft_protocol::{components::blocks::MultiBlockChange, components::chat::ChatMode, components::slots::MainHand, MinecraftPacketPart};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -237,7 +237,7 @@ impl Bot {
                     info!("Bot died: respawning...");
                     self.vertical_speed = 0.0;
                     responses.push(ServerboundPacket::ClientStatus {
-                        action: minecraft_format::game_state::ClientStatus::PerformRespawn,
+                        action: minecraft_protocol::components::game_state::ClientStatus::PerformRespawn,
                     });
                 }
             }
@@ -295,11 +295,11 @@ impl Bot {
                 } else if message.contains("test inventory 1") {
                     *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(
                         1,
-                        vec![minecraft_format::ids::items::Item::Sand],
+                        vec![minecraft_protocol::ids::items::Item::Sand],
                         Some(3),
                     )));
                 } else if message.contains("test inventory 2") {
-                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_format::ids::items::Item::Sand], None)));
+                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemToHotbar::new(1, vec![minecraft_protocol::ids::items::Item::Sand], None)));
                 }
             }
             ClientboundPacket::OpenWindow {

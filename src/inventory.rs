@@ -1,9 +1,10 @@
 use crate::map::Map;
 use log::*;
-use minecraft_format::{
+use crate::*;
+use minecraft_protocol::{
     ids::{blocks::Block, items::Item},
     packets::{play_serverbound::ServerboundPacket, serializer::MinecraftPacketPart, Array},
-    slots::Slot,
+    components::slots::Slot,
 };
 use std::{collections::BTreeMap, sync::mpsc::Sender};
 
@@ -171,7 +172,7 @@ impl PlayerInventory {
             }
         }
 
-        use minecraft_format::{blocks::BlockFace, packets::Position, slots::Hand};
+        use minecraft_protocol::{components::blocks::BlockFace, components::slots::Hand};
         self.sender
             .send(
                 ServerboundPacket::PlaceBlock {
@@ -284,10 +285,10 @@ impl Windows {
                         target_item.item_count.0 += cursor_item.item_count.0;
                         let max_stack_size = target_item.item_id.get_max_stack_size() as i32;
                         if target_item.item_count.0 > max_stack_size {
-                            self.cursor.item = Some(minecraft_format::slots::SlotItem {
+                            self.cursor.item = Some(minecraft_protocol::components::slots::SlotItem {
                                 item_id: target_item.item_id,
-                                item_count: minecraft_format::packets::VarInt(target_item.item_count.0 - max_stack_size),
-                                nbt_data: minecraft_format::nbt::NbtTag::Null,
+                                item_count: minecraft_protocol::packets::VarInt(target_item.item_count.0 - max_stack_size),
+                                nbt_data: minecraft_protocol::nbt::NbtTag::Null,
                             });
                             target_item.item_count.0 = max_stack_size;
                         }
@@ -357,7 +358,7 @@ impl Windows {
         trace!("Opening window {} (type={})", window_id, window_type);
     }
 
-    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Array<minecraft_format::slots::Slot, i16>) {
+    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Array<minecraft_protocol::components::slots::Slot, i16>) {
         trace!("Updating window {} ({} items)", window_id, slots.items.len());
         match window_id {
             0 => {

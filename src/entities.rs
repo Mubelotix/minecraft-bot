@@ -1,16 +1,16 @@
 use crate::*;
-use minecraft_format::{
-    effect::Effect,
-    entity::{EntityMetadata, EntityMetadataValue},
+use minecraft_protocol::{
+    components::effect::Effect,
+    components::entity::{EntityMetadata, EntityMetadataValue},
     ids::entities::Entity as EntityType,
     packets::Direction,
-    paintings::Painting,
+    components::paintings::Painting,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::sync::mpsc::Sender;
 
 const EMPTY_EQUIPMENT: &EntityEquipment = &EntityEquipment::none();
-// TODO once stable: const NO_ATTRIBUTES: &BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)> = &BTreeMap::new();
+// TODO once stable: const NO_ATTRIBUTES: &BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)> = &BTreeMap::new();
 
 pub struct EntityEquipment {
     pub main_hand: Slot,
@@ -49,7 +49,7 @@ pub enum Entity {
         velocity_z: f64,
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
-        attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        attributes: BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)>,
         metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     Player {
@@ -64,7 +64,7 @@ pub enum Entity {
         velocity_z: f64,
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
-        attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        attributes: BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)>,
         metadata: BTreeMap<u8, EntityMetadataValue>,
     },
     ExperienceOrb {
@@ -100,7 +100,7 @@ pub enum Entity {
         velocity_z: f64,
         effects: Vec<(Effect, u8)>,
         equipment: EntityEquipment,
-        attributes: BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>,
+        attributes: BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)>,
         metadata: BTreeMap<u8, EntityMetadataValue>,
     },
 }
@@ -226,7 +226,7 @@ impl Entity {
         }
     }
 
-    pub fn get_attributes(&self) -> Option<&BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>> {
+    pub fn get_attributes(&self) -> Option<&BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)>> {
         match self {
             Entity::LivingEntity { attributes, .. } | Entity::OtherEntity { attributes, .. } | Entity::Player { attributes, .. } => Some(attributes),
             Entity::ExperienceOrb { .. } | Entity::Painting { .. } => {
@@ -236,7 +236,7 @@ impl Entity {
         }
     }
 
-    fn get_mut_attributes(&mut self) -> Option<&mut BTreeMap<String, (f64, Vec<minecraft_format::entity::EntityAttributeModifier>)>> {
+    fn get_mut_attributes(&mut self) -> Option<&mut BTreeMap<String, (f64, Vec<minecraft_protocol::components::entity::EntityAttributeModifier>)>> {
         match self {
             Entity::LivingEntity { attributes, .. } | Entity::OtherEntity { attributes, .. } | Entity::Player { attributes, .. } => Some(attributes),
             Entity::ExperienceOrb { .. } | Entity::Painting { .. } => {
@@ -542,7 +542,7 @@ impl Entities {
         entity.set_velocity(new_velocity_x, new_velocity_y, new_velocity_z);
     }
 
-    pub fn handle_entity_equipement_packet(&mut self, entity_id: i32, equipment: minecraft_format::slots::EquipmentSlotArray) {
+    pub fn handle_entity_equipement_packet(&mut self, entity_id: i32, equipment: minecraft_protocol::components::slots::EquipmentSlotArray) {
         let entity = match self.entities.get_mut(&entity_id) {
             Some(entity) => entity,
             None => {
@@ -556,12 +556,12 @@ impl Entities {
         };
         for (place, slot) in equipment.slots.into_iter() {
             match place {
-                minecraft_format::slots::EquipmentSlot::MainHand => entity_equipment.main_hand = slot,
-                minecraft_format::slots::EquipmentSlot::OffHand => entity_equipment.off_hand = slot,
-                minecraft_format::slots::EquipmentSlot::Boots => entity_equipment.boots = slot,
-                minecraft_format::slots::EquipmentSlot::Leggings => entity_equipment.leggings = slot,
-                minecraft_format::slots::EquipmentSlot::Chestplate => entity_equipment.chestplate = slot,
-                minecraft_format::slots::EquipmentSlot::Helmet => entity_equipment.helmet = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::MainHand => entity_equipment.main_hand = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::OffHand => entity_equipment.off_hand = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::Boots => entity_equipment.boots = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::Leggings => entity_equipment.leggings = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::Chestplate => entity_equipment.chestplate = slot,
+                minecraft_protocol::components::slots::EquipmentSlot::Helmet => entity_equipment.helmet = slot,
             }
         }
     }
@@ -581,7 +581,7 @@ impl Entities {
     pub fn handle_entity_attributes_packet<'a>(
         &mut self,
         entity_id: i32,
-        attributes: minecraft_format::packets::Map<'a, minecraft_format::packets::Identifier<'a>, minecraft_format::entity::EntityAttribute<'a>, i32>,
+        attributes: minecraft_protocol::packets::Map<'a, minecraft_protocol::packets::Identifier<'a>, minecraft_protocol::components::entity::EntityAttribute<'a>, i32>,
     ) {
         let entity = match self.entities.get_mut(&entity_id) {
             Some(entity) => entity,

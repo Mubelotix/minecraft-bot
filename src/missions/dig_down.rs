@@ -1,7 +1,7 @@
 use super::*;
 use crate::bot::Bot;
 use log::*;
-use minecraft_format::{
+use minecraft_protocol::{
     ids::{blocks::Block, items::Item},
     packets::{play_serverbound::ServerboundPacket, Position},
 };
@@ -143,9 +143,9 @@ impl super::Mission for DigDownMission {
                 }
                 let ticks = (time_required * 20.0).ceil() as usize;
                 packets.push(ServerboundPacket::DigBlock {
-                    status: minecraft_format::blocks::DiggingState::Started,
+                    status: minecraft_protocol::components::blocks::DiggingState::Started,
                     location: Position { x, y: y as i16, z },
-                    face: minecraft_format::blocks::BlockFace::Top,
+                    face: minecraft_protocol::components::blocks::BlockFace::Top,
                 });
 
                 self.state = DigDownState::WaitDigging { ticks };
@@ -161,9 +161,9 @@ impl super::Mission for DigDownMission {
                 let (x, y, z) = (position.x.floor() as i32, position.y.floor() as i32 - 1, position.z.floor() as i32);
 
                 packets.push(ServerboundPacket::DigBlock {
-                    status: minecraft_format::blocks::DiggingState::Finished,
+                    status: minecraft_protocol::components::blocks::DiggingState::Finished,
                     location: Position { x, y: y as i16, z },
-                    face: minecraft_format::blocks::BlockFace::Top,
+                    face: minecraft_protocol::components::blocks::BlockFace::Top,
                 });
                 bot.windows.player_inventory.use_held_item(1);
 

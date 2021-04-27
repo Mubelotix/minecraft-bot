@@ -195,9 +195,9 @@ impl Mission for SettlementMission {
             },
             StartDigTree { x, y, z } => {
                 packets.push(ServerboundPacket::DigBlock {
-                    status: minecraft_format::blocks::DiggingState::Started,
+                    status: minecraft_protocol::components::blocks::DiggingState::Started,
                     location: Position { x: *x, y: *y as i16, z: *z },
-                    face: minecraft_format::blocks::BlockFace::Top,
+                    face: minecraft_protocol::components::blocks::BlockFace::Top,
                 });
 
                 self.state = ContinueDigTree {
@@ -216,9 +216,9 @@ impl Mission for SettlementMission {
             }
             FinishDigTree { x, y, z } => {
                 packets.push(ServerboundPacket::DigBlock {
-                    status: minecraft_format::blocks::DiggingState::Finished,
+                    status: minecraft_protocol::components::blocks::DiggingState::Finished,
                     location: Position { x: *x, y: *y as i16, z: *z },
-                    face: minecraft_format::blocks::BlockFace::Top,
+                    face: minecraft_protocol::components::blocks::BlockFace::Top,
                 });
                 bot.map.set_block(*x, *y, *z, Block::Air);
                 bot.windows.player_inventory.use_held_item(1);
