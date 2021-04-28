@@ -2,17 +2,45 @@ use std::collections::HashMap;
 
 use crate::*;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ObjectKind {
+    Tree,
+    Item,
+    Wheat,
+}
+
 enum State {
     CheckNeed,
-    FindTrees,
-    SelectTree,
-    MoveToTree { mission: TravelMission, x: i32, y: i32, z: i32 },
-    StartDigTree { x: i32, y: i32, z: i32 },
-    ContinueDigTree { ticks: u8, x: i32, y: i32, z: i32 },
-    FinishDigTree { x: i32, y: i32, z: i32 },
-    FindItems,
-    SelectItem,
-    MoveToItem { mission: TravelMission },
+
+    Find(ObjectKind),
+    Select(ObjectKind),
+    MoveTo {
+        object: ObjectKind,
+        mission: TravelMission,
+        x: i32,
+        y: i32,
+        z: i32,
+    },
+
+    StartDigging {
+        object: ObjectKind,
+        x: i32,
+        y: i32,
+        z: i32,
+    },
+    ContinueDigging {
+        object: ObjectKind,
+        ticks: u8,
+        x: i32,
+        y: i32,
+        z: i32,
+    },
+    FinishDigging {
+        object: ObjectKind,
+        x: i32,
+        y: i32,
+        z: i32,
+    },
 
     Failed,
     Done,
@@ -22,28 +50,28 @@ use State::*;
 
 pub struct SettlementMission {
     state: State,
-    trees: Vec<(i32, i32, i32)>,
+    blocks: Vec<(i32, i32, i32)>,
     items: Vec<(i32, i32, i32)>,
 }
 
 const WOOD_ITEMS: [Item; 14] = [
-    Item::StrippedOakWood,
-    Item::StrippedSpruceWood,
-    Item::StrippedBirchWood,
-    Item::StrippedJungleWood,
-    Item::StrippedAcaciaWood,
-    Item::StrippedDarkOakWood,
-    Item::StrippedCrimsonHyphae,
-    Item::StrippedWarpedHyphae,
-    Item::OakWood,
-    Item::SpruceWood,
-    Item::BirchWood,
-    Item::JungleWood,
-    Item::AcaciaWood,
-    Item::DarkOakWood,
+    Item::OakLog,
+    Item::SpruceLog,
+    Item::BirchLog,
+    Item::JungleLog,
+    Item::AcaciaLog,
+    Item::DarkOakLog,
+    Item::CrimsonStem,
+    Item::WarpedStem,
+    Item::StrippedOakLog,
+    Item::StrippedSpruceLog,
+    Item::StrippedBirchLog,
+    Item::StrippedJungleLog,
+    Item::StrippedAcaciaLog,
+    Item::StrippedDarkOakLog,
 ];
 
-const SEED_ITEMS: [Item; 2] = [
+const SAPLING_ITEMS: [Item; 2] = [
     Item::OakSapling,
     Item::BirchSapling,
     // incomplete since we don't want the others
@@ -53,7 +81,7 @@ impl SettlementMission {
     pub fn new() -> Self {
         SettlementMission {
             state: CheckNeed,
-            trees: Vec::new(),
+            blocks: Vec::new(),
             items: Vec::new(),
         }
     }
@@ -65,99 +93,164 @@ impl Mission for SettlementMission {
             Some(position) => (position.x, position.y, position.z),
             None => return MissionResult::Failed,
         };
-        let pos = (position.0.floor() as i32, position.2.floor() as i32, position.1.floor() as i32);
+        let pos = (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32);
 
         match &mut self.state {
             CheckNeed => {
-                let mut wood_count = 0;
+                let mut log_count = 0;
                 let mut sappling_count = 0;
+                let mut wheat_seeds_count = 0;
                 for slot in bot.windows.player_inventory.get_slots() {
                     if let Some(item) = &slot.item {
                         if WOOD_ITEMS.contains(&item.item_id) {
-                            wood_count += item.item_count.0;
-                        }
-                        if SEED_ITEMS.contains(&item.item_id) {
+                            log_count += item.item_count.0;
+                        } else if SAPLING_ITEMS.contains(&item.item_id) {
                             sappling_count += item.item_count.0;
+                        } else if item.item_id == Item::WheatSeeds {
+                            wheat_seeds_count += item.item_count.0;
                         }
                     }
                 }
 
-                if sappling_count < 3 || wood_count < 30 {
-                    self.state = FindTrees;
+                if sappling_count < 3 || log_count < 30 {
+                    self.state = Find(ObjectKind::Tree);
+                } else if wheat_seeds_count < 16 {
+                    self.state = Find(ObjectKind::Wheat);
                 } else {
                     self.state = Done;
                 }
             }
-            FindTrees => {
-                let wood_blocks = bot.map.search_blocks(pos.0, pos.2, &[Block::OakLog, Block::BirchLog], 500, 32 * 32);
-                let mut trees = HashMap::new();
-                for wood_block in wood_blocks {
-                    if let Some(previous_tree) = trees.get(&(wood_block.0, wood_block.2)) {
-                        if *previous_tree < wood_block.1 {
-                            continue;
+            Find(object) => {
+                match object {
+                    ObjectKind::Tree => {
+                        let wood_blocks = bot.map.search_blocks(pos.0, pos.2, &[Block::OakLog, Block::BirchLog], 750, 32 * 32);
+                        let mut trees = HashMap::new();
+                        for wood_block in wood_blocks {
+                            if let Some(previous_tree) = trees.get(&(wood_block.0, wood_block.2)) {
+                                if *previous_tree < wood_block.1 {
+                                    continue;
+                                }
+                            }
+                            trees.insert((wood_block.0, wood_block.2), wood_block.1);
                         }
+                        self.blocks = trees.into_iter().map(|(k, v)| (k.0, v, k.1)).collect();
                     }
-                    trees.insert((wood_block.0, wood_block.2), wood_block.1);
+                    ObjectKind::Wheat => {
+                        self.blocks = bot.map.search_blocks(pos.0, pos.2, &[Block::Grass, Block::Wheat], 400, 32 * 32);
+                    }
+                    ObjectKind::Item => {
+                        self.items = bot
+                            .entities
+                            .get_items(Some(&[Item::OakLog, Item::BirchLog, Item::OakSapling, Item::BirchSapling, Item::WheatSeeds]));
+                    }
                 }
-                self.trees = trees.into_iter().map(|(k, v)| (k.0, v, k.1)).collect();
-                self.state = SelectTree;
+
+                self.state = Select(*object);
             }
-            SelectTree => {
-                self.trees.sort_by_key(|(x, y, z)| -((x - pos.0).abs() + (y - pos.1).abs() + (z - pos.2).abs()));
+            Select(object) => {
+                let list = match object {
+                    ObjectKind::Tree => &mut self.blocks,
+                    ObjectKind::Wheat => &mut self.blocks,
+                    ObjectKind::Item => &mut self.items,
+                };
+                list.sort_by_key(|(x, y, z)| -((x - pos.0).abs() + (y - pos.1).abs() + (z - pos.2).abs()));
 
                 loop {
-                    let (x, y, z) = match self.trees.pop() {
+                    let (x, y, z) = match list.pop() {
                         Some(candidate) => candidate,
                         None => {
-                            warn!("No tree candidate left!");
-                            self.state = Failed;
-                            return MissionResult::Failed;
+                            trace!("No {:?} candidate left", object);
+                            self.state = CheckNeed;
+                            return MissionResult::InProgress;
                         }
                     };
 
                     if bot.map.get_block(x, y - 1, z).is_blocking() {
-                        for (nx, nz) in &[(x - 1, z), (x + 1, z), (x, z - 1), (x, z + 1)] {
-                            let (nx, nz) = (*nx, *nz);
+                        if *object == ObjectKind::Tree {
+                            for (nx, nz) in &[(x - 1, z), (x + 1, z), (x, z - 1), (x, z + 1)] {
+                                let (nx, nz) = (*nx, *nz);
 
-                            if bot.map.get_block(nx, y - 1, nz).is_blocking()
-                                && bot.map.get_block(nx, y, nz).is_air_block()
-                                && bot.map.get_block(nx, y + 1, nz).is_air_block()
-                            {
-                                if let Some(mission) = TravelMission::new(&bot.map, pos, (nx, y, nz), 5000) {
-                                    self.state = MoveToTree { mission, x, y, z };
+                                if bot.map.get_block(nx, y - 1, nz).is_blocking()
+                                    && bot.map.get_block(nx, y, nz).is_air_block()
+                                    && bot.map.get_block(nx, y + 1, nz).is_air_block()
+                                {
+                                    if let Some(mission) = TravelMission::new(&bot.map, pos, (nx, y, nz), 5000) {
+                                        self.state = MoveTo {
+                                            object: *object,
+                                            mission,
+                                            x,
+                                            y,
+                                            z,
+                                        };
+                                        return MissionResult::InProgress;
+                                    }
                                 }
+                            }
+                        } else if bot.map.get_block(x, y, z).is_air_block() && bot.map.get_block(x, y + 1, z).is_air_block() {
+                            if let Some(mission) = TravelMission::new(&bot.map, pos, (x, y, z), 5000) {
+                                self.state = MoveTo {
+                                    object: *object,
+                                    mission,
+                                    x,
+                                    y,
+                                    z,
+                                };
+                                return MissionResult::InProgress;
                             }
                         }
                     }
                 }
             }
-            MoveToTree { mission, x, y, z } => match mission.execute(bot, packets) {
+            MoveTo { object, mission, x, y, z } => match mission.execute(bot, packets) {
                 MissionResult::InProgress => (),
-                MissionResult::Done => self.state = StartDigTree { x: *x, y: *y, z: *z },
-                MissionResult::Failed => self.state = SelectTree,
+                MissionResult::Done => match object {
+                    ObjectKind::Item => self.state = Select(*object),
+                    object => {
+                        self.state = StartDigging {
+                            object: *object,
+                            x: *x,
+                            y: *y,
+                            z: *z,
+                        }
+                    }
+                },
+                MissionResult::Failed => self.state = Select(*object),
             },
-            StartDigTree { x, y, z } => {
+            StartDigging { object, x, y, z } => {
                 packets.push(ServerboundPacket::DigBlock {
                     status: minecraft_protocol::components::blocks::DiggingState::Started,
                     location: Position { x: *x, y: *y as i16, z: *z },
                     face: minecraft_protocol::components::blocks::BlockFace::Top,
                 });
 
-                self.state = ContinueDigTree {
-                    ticks: 3 * 20,
+                self.state = ContinueDigging {
+                    object: *object,
+                    ticks: match object {
+                        ObjectKind::Tree => 3 * 20,
+                        ObjectKind::Item => {
+                            warn!("Digging an item");
+                            0
+                        }
+                        ObjectKind::Wheat => 0,
+                    },
                     x: *x,
                     y: *y,
                     z: *z,
                 };
             }
-            ContinueDigTree { ticks, x, y, z } => {
+            ContinueDigging { object, ticks, x, y, z } => {
                 if *ticks == 0 {
-                    self.state = FinishDigTree { x: *x, y: *y, z: *z };
+                    self.state = FinishDigging {
+                        object: *object,
+                        x: *x,
+                        y: *y,
+                        z: *z,
+                    };
                 } else {
                     *ticks -= 1;
                 }
             }
-            FinishDigTree { x, y, z } => {
+            FinishDigging { object, x, y, z } => {
                 packets.push(ServerboundPacket::DigBlock {
                     status: minecraft_protocol::components::blocks::DiggingState::Finished,
                     location: Position { x: *x, y: *y as i16, z: *z },
@@ -166,13 +259,11 @@ impl Mission for SettlementMission {
                 bot.map.set_block(*x, *y, *z, Block::Air);
                 bot.windows.player_inventory.use_held_item(1);
 
-                if [Block::OakLog, Block::BirchLog].contains(&bot.map.get_block(*x, *y + 1, *z)) {
-                    if (pos.0 != *x || pos.2 != *z)
-                        && bot.map.get_block(*x, *y - 1, *z).is_air_block()
-                        && bot.map.get_block(*x, *y - 2, *z).is_blocking()
-                    {
+                if *object == ObjectKind::Tree && [Block::OakLog, Block::BirchLog].contains(&bot.map.get_block(*x, *y + 1, *z)) {
+                    if (pos.0 != *x || pos.2 != *z) && bot.map.get_block(*x, *y - 1, *z).is_air_block() && bot.map.get_block(*x, *y - 2, *z).is_blocking() {
                         if let Some(mission) = TravelMission::new(&bot.map, pos, (*x, *y - 1, *z), 25) {
-                            self.state = MoveToTree {
+                            self.state = MoveTo {
+                                object: ObjectKind::Tree,
                                 mission,
                                 x: *x,
                                 y: *y + 1,
@@ -180,15 +271,22 @@ impl Mission for SettlementMission {
                             };
                         } else {
                             warn!("Failed to find path to tree but the destination is one block away and there should be no obstacle.");
-                            self.state = FindItems;
+                            self.state = Find(ObjectKind::Item);
                         }
                     } else {
-                        self.state = StartDigTree { x: *x, y: *y + 1, z: *z };
+                        self.state = StartDigging {
+                            object: ObjectKind::Tree,
+                            x: *x,
+                            y: *y + 1,
+                            z: *z,
+                        };
                     }
                 } else {
-                    self.state = FindItems;
+                    self.state = Find(ObjectKind::Item);
                 }
             }
+            /*
+            // Items
             FindItems => {
                 self.items = bot.entities.get_items(Some(&[Item::OakLog, Item::BirchLog]));
                 self.state = SelectItem;
@@ -197,7 +295,7 @@ impl Mission for SettlementMission {
                 let item = match self.items.pop() {
                     Some(item) => item,
                     None => {
-                        self.state = SelectTree;
+                        self.state = CheckNeed;
                         break;
                     }
                 };
@@ -210,8 +308,7 @@ impl Mission for SettlementMission {
                 MissionResult::InProgress => (),
                 MissionResult::Done => self.state = SelectItem,
                 MissionResult::Failed => self.state = SelectItem,
-            },
-
+            },*/
             Done => {
                 return MissionResult::Done;
             }
