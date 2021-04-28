@@ -26,8 +26,8 @@ impl DigDownMission {
 #[derive(Debug)]
 enum DigDownState {
     MoveToBlockCenter,
-    FindTool { submission: MoveItemToHotbar },
-    FindBlocks { submission: MoveItemToHotbar },
+    FindTool { submission: MoveItemTo },
+    FindBlocks { submission: MoveItemTo },
     StartDigging,
     WaitDigging { ticks: usize },
     FinishDigging,
@@ -84,14 +84,14 @@ impl super::Mission for DigDownMission {
 
                 if done {
                     self.state = DigDownState::FindTool {
-                        submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)),
+                        submission: MoveItemTo::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], 36),
                     };
                 }
             }
             DigDownState::FindTool { submission } => match submission.execute(bot, packets) {
                 MissionResult::Done | MissionResult::Failed => {
                     self.state = DigDownState::FindBlocks {
-                        submission: MoveItemToHotbar::new(5, vec![Item::Andesite, Item::Granite, Item::Cobblestone, Item::Dirt], None),
+                        submission: MoveItemTo::new(5, vec![Item::Andesite, Item::Granite, Item::Cobblestone, Item::Dirt], 45),
                     }
                 }
                 MissionResult::InProgress => (),
@@ -191,7 +191,7 @@ impl super::Mission for DigDownMission {
                 }
 
                 self.state = DigDownState::FindTool {
-                    submission: MoveItemToHotbar::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], Some(0)),
+                    submission: MoveItemTo::new(1, vec![Item::IronPickaxe, Item::StonePickaxe, Item::WoodenPickaxe], 36),
                 };
             }
 

@@ -4,10 +4,12 @@ pub mod dig_down;
 pub mod inventory;
 pub mod settlement;
 pub mod travel;
+pub mod crafting;
 pub use dig_down::DigDownMission;
 pub use inventory::*;
 pub use settlement::*;
 pub use travel::TravelMission;
+pub use crafting::*;
 
 use crate::bot::Bot;
 

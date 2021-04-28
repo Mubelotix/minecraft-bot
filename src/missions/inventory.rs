@@ -4,19 +4,22 @@ use log::*;
 use minecraft_protocol::{ids::items::Item, packets::play_serverbound::ServerboundPacket};
 
 #[derive(Debug)]
-pub struct MoveItemToHotbar {
+pub struct MoveItemTo {
     minimum: i32,
     items: Vec<Item>,
-    hotbar_slot: Option<usize>,
+    destination: usize,
     state: MoveItemState,
 }
 
-impl MoveItemToHotbar {
-    pub fn new(minimum: u32, items: Vec<Item>, hotbar_slot: Option<usize>) -> Self {
+impl MoveItemTo {
+    pub fn new(minimum: u32, items: Vec<Item>, destination: usize) -> Self {
+        for item in &items {
+            assert!(minimum <= item.get_max_stack_size() as u32);
+        }
         Self {
             minimum: minimum as i32,
             items,
-            hotbar_slot,
+            destination,
             state: MoveItemState::PickItem,
         }
     }
@@ -44,22 +47,17 @@ impl MoveItemState {
     }
 }
 
-impl Mission for MoveItemToHotbar {
+impl Mission for MoveItemTo {
     fn execute(&mut self, bot: &mut crate::bot::Bot, _packets: &mut Vec<ServerboundPacket>) -> MissionResult {
         match self.state {
             MoveItemState::CheckNeed => {
-                let destination_slot_id = match self.hotbar_slot {
-                    Some(hotbar_slot_id) => hotbar_slot_id + 36,
-                    None => 45, // offhand id
-                };
-
-                if let Some(item) = &bot.windows.player_inventory.get_slots()[destination_slot_id].item {
+                if let Some(item) = &bot.windows.player_inventory.get_slots()[self.destination].item {
                     if self.items.contains(&item.item_id) && item.item_count.0 >= self.minimum {
                         trace!(
                             "Mission complete: Moved at least {} items (one of {:?}) to hotbar slot {:?}",
                             self.minimum,
                             self.items,
-                            self.hotbar_slot
+                            self.destination
                         );
                         self.state = MoveItemState::Done;
                         return MissionResult::Done;
@@ -73,8 +71,7 @@ impl Mission for MoveItemToHotbar {
                 for asked_item in &self.items {
                     for (idx, slot) in bot.windows.player_inventory.get_slots().iter().enumerate() {
                         if let Some(item) = &slot.item {
-                            // TODO gather items that are on multiple slots
-                            if *asked_item == item.item_id && item.item_count.0 >= self.minimum {
+                            if *asked_item == item.item_id && idx != self.destination {
                                 slot_id = Some(idx);
                                 break;
                             }
@@ -104,13 +101,8 @@ impl Mission for MoveItemToHotbar {
                 None => {}
             },
             MoveItemState::PutItem => {
-                let destination_slot_id = match self.hotbar_slot {
-                    Some(hotbar_slot_id) => hotbar_slot_id + 36,
-                    None => 45, // offhand id
-                };
-
                 // Click item
-                let action_id = bot.windows.click_slot(0, destination_slot_id);
+                let action_id = bot.windows.click_slot(0, self.destination);
                 self.state = MoveItemState::WaitPutConfirmation { action_id };
             }
             MoveItemState::WaitPutConfirmation { action_id } => match bot.windows.get_action_state(0, action_id) {
@@ -154,10 +146,7 @@ impl Mission for MoveItemToHotbar {
             }
             MoveItemState::WaitSweepConfirmation { action_id } => match bot.windows.get_action_state(0, action_id) {
                 Some(true) => {
-                    return {
-                        self.state = MoveItemState::CheckNeed;
-                        MissionResult::InProgress
-                    }
+                    self.state = MoveItemState::CheckNeed;
                 }
                 Some(false) => {
                     self.state = MoveItemState::SweepCursor;
