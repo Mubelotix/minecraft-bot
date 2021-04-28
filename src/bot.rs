@@ -280,12 +280,12 @@ impl Bot {
                     if let Some(mission) = TravelMission::new(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-222, 75, 54), 7500) {
                         *self.mission.lock().unwrap() = Some(Box::new(mission));
                     }
-                } else if message.contains("find wood") {
+                } else if message.contains("find diams") {
                     let position = self.position.as_ref().unwrap();
-                    debug!(
-                        "{} wood blocks found",
+                    info!(
+                        "{} diamonds blocks found",
                         self.map
-                            .search_blocks(position.x as i32, position.z as i32, &[Block::OakLog, Block::BirchLog], 3000, 16*16)
+                            .search_blocks(position.x as i32, position.z as i32, &[Block::DiamondBlock, Block::DiamondOre], 5000, 32*32)
                             .len()
                     );
                 } else if message.contains("settle") {
