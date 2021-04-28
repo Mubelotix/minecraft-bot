@@ -12,7 +12,7 @@ enum State {
     FinishDigTree { x: i32, y: i32, z: i32 },
     FindItems,
     SelectItem,
-    MoveToItem {mission: TravelMission},
+    MoveToItem { mission: TravelMission },
 
     Failed,
     Done,
@@ -22,8 +22,8 @@ use State::*;
 
 pub struct SettlementMission {
     state: State,
-    trees: Option<Vec<(i32, i32, i32)>>,
-    items: Vec<(i32, i32, i32)>
+    trees: Vec<(i32, i32, i32)>,
+    items: Vec<(i32, i32, i32)>,
 }
 
 const WOOD_ITEMS: [Item; 14] = [
@@ -53,8 +53,8 @@ impl SettlementMission {
     pub fn new() -> Self {
         SettlementMission {
             state: CheckNeed,
-            trees: None,
-            items: Vec::new()
+            trees: Vec::new(),
+            items: Vec::new(),
         }
     }
 }
@@ -65,6 +65,7 @@ impl Mission for SettlementMission {
             Some(position) => (position.x, position.y, position.z),
             None => return MissionResult::Failed,
         };
+        let pos = (position.0.floor() as i32, position.2.floor() as i32, position.1.floor() as i32);
 
         match &mut self.state {
             CheckNeed => {
@@ -85,13 +86,10 @@ impl Mission for SettlementMission {
                     self.state = FindTrees;
                 } else {
                     self.state = Done;
-                    return MissionResult::Done;
                 }
             }
             FindTrees => {
-                let wood_blocks = bot
-                    .map
-                    .search_blocks(position.0 as i32, position.2 as i32, &[Block::OakLog, Block::BirchLog], 500, 32*32);
+                let wood_blocks = bot.map.search_blocks(pos.0, pos.2, &[Block::OakLog, Block::BirchLog], 500, 32 * 32);
                 let mut trees = HashMap::new();
                 for wood_block in wood_blocks {
                     if let Some(previous_tree) = trees.get(&(wood_block.0, wood_block.2)) {
@@ -101,25 +99,14 @@ impl Mission for SettlementMission {
                     }
                     trees.insert((wood_block.0, wood_block.2), wood_block.1);
                 }
-                let trees = trees.into_iter().map(|(k, v)| (k.0, v, k.1)).collect();
-
-                self.trees = Some(trees);
+                self.trees = trees.into_iter().map(|(k, v)| (k.0, v, k.1)).collect();
                 self.state = SelectTree;
             }
             SelectTree => {
-                let trees = match self.trees.as_mut() {
-                    Some(trees) => trees,
-                    None => {
-                        warn!("Selecting tree but there trees have not been searched");
-                        self.state = FindTrees;
-                        return MissionResult::InProgress;
-                    }
-                };
-
-                trees.sort_by_key(|(x, y, z)| -((x - position.0 as i32).abs() + (y - position.1 as i32).abs() + (z - position.2 as i32).abs()));
+                self.trees.sort_by_key(|(x, y, z)| -((x - pos.0).abs() + (y - pos.1).abs() + (z - pos.2).abs()));
 
                 loop {
-                    let (x, y, z) = match trees.pop() {
+                    let (x, y, z) = match self.trees.pop() {
                         Some(candidate) => candidate,
                         None => {
                             warn!("No tree candidate left!");
@@ -129,61 +116,17 @@ impl Mission for SettlementMission {
                     };
 
                     if bot.map.get_block(x, y - 1, z).is_blocking() {
-                        if bot.map.get_block(x - 1, y - 1, z).is_blocking()
-                            && bot.map.get_block(x - 1, y, z).is_air_block()
-                            && bot.map.get_block(x - 1, y + 1, z).is_air_block()
-                        {
-                            if let Some(mission) = TravelMission::new(
-                                &bot.map,
-                                (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                                (x - 1, y, z),
-                                5000,
-                            ) {
-                                self.state = MoveToTree { mission, x, y, z };
+                        for (nx, nz) in &[(x - 1, z), (x + 1, z), (x, z - 1), (x, z + 1)] {
+                            let (nx, nz) = (*nx, *nz);
+
+                            if bot.map.get_block(nx, y - 1, nz).is_blocking()
+                                && bot.map.get_block(nx, y, nz).is_air_block()
+                                && bot.map.get_block(nx, y + 1, nz).is_air_block()
+                            {
+                                if let Some(mission) = TravelMission::new(&bot.map, pos, (nx, y, nz), 5000) {
+                                    self.state = MoveToTree { mission, x, y, z };
+                                }
                             }
-                            return MissionResult::InProgress;
-                        }
-                        if bot.map.get_block(x + 1, y - 1, z).is_blocking()
-                            && bot.map.get_block(x + 1, y, z).is_air_block()
-                            && bot.map.get_block(x + 1, y + 1, z).is_air_block()
-                        {
-                            if let Some(mission) = TravelMission::new(
-                                &bot.map,
-                                (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                                (x + 1, y, z),
-                                5000,
-                            ) {
-                                self.state = MoveToTree { mission, x, y, z };
-                            }
-                            return MissionResult::InProgress;
-                        }
-                        if bot.map.get_block(x, y - 1, z - 1).is_blocking()
-                            && bot.map.get_block(x, y, z - 1).is_air_block()
-                            && bot.map.get_block(x, y + 1, z - 1).is_air_block()
-                        {
-                            if let Some(mission) = TravelMission::new(
-                                &bot.map,
-                                (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                                (x, y, z - 1),
-                                5000,
-                            ) {
-                                self.state = MoveToTree { mission, x, y, z };
-                            }
-                            return MissionResult::InProgress;
-                        }
-                        if bot.map.get_block(x, y - 1, z + 1).is_blocking()
-                            && bot.map.get_block(x, y, z + 1).is_air_block()
-                            && bot.map.get_block(x, y + 1, z + 1).is_air_block()
-                        {
-                            if let Some(mission) = TravelMission::new(
-                                &bot.map,
-                                (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                                (x, y, z + 1),
-                                5000,
-                            ) {
-                                self.state = MoveToTree { mission, x, y, z };
-                            }
-                            return MissionResult::InProgress;
                         }
                     }
                 }
@@ -224,16 +167,11 @@ impl Mission for SettlementMission {
                 bot.windows.player_inventory.use_held_item(1);
 
                 if [Block::OakLog, Block::BirchLog].contains(&bot.map.get_block(*x, *y + 1, *z)) {
-                    if (position.0.floor() as i32 != *x || position.2.floor() as i32 != *z)
+                    if (pos.0 != *x || pos.2 != *z)
                         && bot.map.get_block(*x, *y - 1, *z).is_air_block()
                         && bot.map.get_block(*x, *y - 2, *z).is_blocking()
                     {
-                        if let Some(mission) = TravelMission::new(
-                            &bot.map,
-                            (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32),
-                            (*x, *y - 1, *z),
-                            25,
-                        ) {
+                        if let Some(mission) = TravelMission::new(&bot.map, pos, (*x, *y - 1, *z), 25) {
                             self.state = MoveToTree {
                                 mission,
                                 x: *x,
@@ -255,28 +193,24 @@ impl Mission for SettlementMission {
                 self.items = bot.entities.get_items(Some(&[Item::OakLog, Item::BirchLog]));
                 self.state = SelectItem;
             }
-            SelectItem => {
-                loop {
-                    let item = match self.items.pop() {
-                        Some(item) => item,
-                        None => {
-                            self.state = SelectTree;
-                            break;
-                        }
-                    };
-                    if let Some(mission) = TravelMission::new(&bot.map, (position.0.floor() as i32, position.1.floor() as i32, position.2.floor() as i32), item, 3000) {
-                        self.state = MoveToItem {mission};
+            SelectItem => loop {
+                let item = match self.items.pop() {
+                    Some(item) => item,
+                    None => {
+                        self.state = SelectTree;
                         break;
                     }
+                };
+                if let Some(mission) = TravelMission::new(&bot.map, pos, item, 3000) {
+                    self.state = MoveToItem { mission };
+                    break;
                 }
-            } 
-            MoveToItem {mission} => {
-                match mission.execute(bot, packets) {
-                    MissionResult::InProgress => (),
-                    MissionResult::Done => self.state = SelectItem,
-                    MissionResult::Failed => self.state = SelectItem,
-                }
-            }
+            },
+            MoveToItem { mission } => match mission.execute(bot, packets) {
+                MissionResult::InProgress => (),
+                MissionResult::Done => self.state = SelectItem,
+                MissionResult::Failed => self.state = SelectItem,
+            },
 
             Done => {
                 return MissionResult::Done;
