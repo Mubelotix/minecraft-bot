@@ -15,32 +15,25 @@ pub trait Mission {
 }
 
 #[fsm]
-fn test() -> Result<(), &'static str> {
-    let (action_id, id): (u16, u8) = {
-        
+fn test() {
+    let (mut action_id, id): (u16, u8) = {
+        let mut action_id = 8;
+        let id = 12;
     };
 
-    let (test1, test2): (String, String) = {
-        
+    let (test): (u8) = {
+        let test = 25;
     };
 
-    let (t8): (usize) = {
-        
-    };
-
-    let t9: u128 = {
-        
+    let data: u8 = loop {
+        if test == 25 {
+            break;
+        }
     };
 
     {
-        
+        println!("yeah");
     }
 
-    let t10: (u128) = {
-        println!("Test1 = {}", test1);
-    };
-
-    let t11: String = {
-
-    };
+    
 }
