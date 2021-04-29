@@ -19,10 +19,12 @@ fn test() {
     let (mut action_id, id): (u16, u8) = {
         let mut action_id = 8;
         let id = 12;
+        (action_id, id)
     };
 
-    let (test): (u8) = {
+    let test: u8 = {
         let test = 25;
+        test
     };
 
     let data: u8 = loop {

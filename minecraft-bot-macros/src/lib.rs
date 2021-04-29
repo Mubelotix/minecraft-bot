@@ -7,8 +7,10 @@ use syn::*;
 #[derive(Debug, Clone)]
 struct MissionState {
     variant_ident: Ident,
+    is_loop: bool,
     fields: Vec<(Option<token::Mut>, Ident, PermissiveType)>,
     stmts: Vec<Stmt>,
+    next_mission: Option<Box<MissionState>>,
 }
 
 impl MissionState {
@@ -18,6 +20,43 @@ impl MissionState {
         let variant_field_types = self.fields.iter().map(|t| &t.2);
         quote! {
             #variant_ident { #(#variant_field_idents: #variant_field_types,)* }
+        }
+    }
+
+    fn match_arm(&self) -> proc_macro2::TokenStream {
+        let variant_ident = &self.variant_ident;
+        let stmts = &self.stmts;
+        let variant_field_idents = self.fields.iter().map(|t| &t.1);
+        let variant_field_idents2 = self.fields.iter().map(|t| &t.1);
+        let variant_field_mutability = self.fields.iter().map(|t| &t.0);
+
+        if let Some(next_mission) = &self.next_mission {
+            let next_variant_ident = &next_mission.variant_ident;
+            let next_variant_fields = next_mission.fields.iter().map(|f| &f.1);
+
+            if !self.is_loop {
+                quote! {
+                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                        #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
+                        #(#stmts)*
+                        self.state = GeneratedMissionState::#next_variant_ident { #(#next_variant_fields, )* };
+                    },
+                }
+            } else {
+                quote! (
+                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                        #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
+                        #(#stmts)*
+                    },
+                )
+            }
+        } else {
+            quote! {
+                GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                    #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
+                    #(#stmts)*
+                },
+            }
         }
     }
 }
@@ -44,8 +83,8 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     println!("{:#?}", input.block);
 
-    let mut mission_states = Vec::new();
-    let mut active_mission_state = None;
+    let mut mission_states: Vec<MissionState> = Vec::new();
+    let mut active_mission_state: Option<MissionState> = None;
     let mut fields = Vec::new();
     for (idx, item) in input.block.stmts.iter().enumerate() {
         // Add the new variant
@@ -55,7 +94,7 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
         match item {
             Stmt::Local(local) if matches!(local.init.as_ref().map(|(_, b)| *b.clone()), Some(Expr::Loop(_))) => {
                 if let Some(active_mission_state) = active_mission_state.take() {
-                    mission_states.push(active_mission_state)
+                    mission_states.push(active_mission_state);
                 }
 
                 let loop_expr = match local.init.as_ref().map(|(_, b)| *b.clone()) {
@@ -65,10 +104,12 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 let looping_mission_state = MissionState {
                     variant_ident,
+                    is_loop: true,
                     fields: fields.clone(),
                     stmts: loop_expr.body.stmts,
+                    next_mission: None,
                 };
-            
+                
                 mission_states.push(looping_mission_state);
             }
             expr => {
@@ -77,8 +118,10 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     None => {
                         active_mission_state = Some(MissionState {
                             variant_ident,
+                            is_loop: false,
                             fields: fields.clone(),
                             stmts: Vec::new(),
+                            next_mission: None,
                         });
                         active_mission_state.as_mut().unwrap()
                     }
@@ -119,84 +162,19 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 fields.push((name_ident.0, name_ident.1, types.remove(0)));
             }
         }
-
-        /*let variant = quote! {
-            #variant_ident { #(#variant_field_idents: #variant_field_types,)* }
-        };
-        variants.push(variant);
-
-        match item {
-            Stmt::Local(item) => {
-                let pat = match &item.pat {
-                    Pat::Type(pat) => pat,
-                    other => panic!("unsupported pat {:?} in function", other),
-                };
-
-                let name_idents: Vec<Ident> = match *pat.pat.clone() {
-                    Pat::Tuple(tuple) => tuple
-                        .elems
-                        .into_iter()
-                        .map(|e| match e {
-                            Pat::Ident(pat) => pat.ident,
-                            other => panic!("expected an ident for variable name, found {:?}", other),
-                        })
-                        .collect(),
-                    Pat::Ident(ident) => vec![ident.ident],
-                    other => panic!("unsupported pat type {:?} in function", other),
-                };
-
-                let types: Vec<PermissiveType> = match *pat.ty.clone() {
-                    Type::Tuple(tuple) => tuple.elems.into_iter().map(PermissiveType::RestrictiveType).collect(),
-                    Type::Paren(paren) => vec![PermissiveType::RestrictiveType(*paren.elem)],
-                    Type::Path(path) => vec![PermissiveType::Path(path)],
-                    other => panic!("unsupported type of variable {:?} in function", other),
-                };
-
-                let code = item.init.as_ref().unwrap();
-                let stmts = match *code.1.clone() {
-                    Expr::Block(block) => block.block.stmts,
-                    other => vec![Stmt::Expr(other)],
-                };
-                variant_match_arms.push(quote! {
-                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
-                        #(let #variant_field_idents = *#variant_field_idents;)*
-                        #(#stmts)*
-                        self.state = GeneratedMissionState::#next_variant_ident { #(#variant_field_idents,)* #(#name_idents,)* }
-                    },
-                });
-
-                for name_ident in name_idents {
-                    variant_field_idents.push(name_ident);
-                }
-
-                for r#type in types {
-                    variant_field_types.push(r#type);
-                }
-            },
-            Stmt::Expr(expr) => {
-                let code = match expr {
-                    Expr::Block(block) => {
-                        block.block.clone()
-                    }
-                    other => Block {
-                        brace_token: token::Brace {span: Span::call_site()},
-                        stmts: vec![Stmt::Expr(other.to_owned())],
-                    }
-                };
-
-                variant_match_arms.push(quote! {
-                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => #code,
-                });
-            }
-            other => panic!("unsupported item {:?} in function", other),
-        };*/
     }
 
     if let Some(active_mission_state) = active_mission_state.take() {
         mission_states.push(active_mission_state)
     }
 
+    for i in 0..mission_states.len() - 1 {
+        mission_states[i].next_mission = Some(Box::new(mission_states[i+1].clone()));
+    }
+
     let declaration = mission_states.iter().map(|m| m.declaration());
+    let match_arms = mission_states.iter().map(|m| m.match_arm());
+
     let expanded = quote! {
         enum GeneratedMissionState {
             #(#declaration,)*
@@ -218,7 +196,7 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult {
                 match &mut self.state {
-                    _ => (),
+                    #(#match_arms)*
                 }
                 MissionResult::InProgress
             }
