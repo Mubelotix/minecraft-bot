@@ -5,6 +5,7 @@ use proc_macro::TokenStream;
 use proc_macro2::*;
 use quote::{format_ident, quote};
 use syn::*;
+use convert_case::{Case, Casing};
 
 mod mission_state;
 mod code_modifier;
@@ -18,6 +19,7 @@ fn analyse_block(
     is_loop: bool,
     loops: &mut HashMap<String, (usize, usize)>,
     parent_loops: Vec<String>,
+    state_name: Ident,
 ) {
     let mut active_mission_state: Option<MissionState> = None;
     let first_idx = mission_states.len();
@@ -48,7 +50,7 @@ fn analyse_block(
                 parent_loops.push(label.clone());
 
                 let continue_index = mission_states.len();
-                analyse_block(loop_expr.body.stmts, fields.clone(), mission_states, true, loops, parent_loops);
+                analyse_block(loop_expr.body.stmts, fields.clone(), mission_states, true, loops, parent_loops, state_name.clone());
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -62,7 +64,7 @@ fn analyse_block(
                 parent_loops.push(label.clone());
 
                 let continue_index = mission_states.len();
-                analyse_block(loop_expr.body.stmts.clone(), fields.clone(), mission_states, true, loops, parent_loops);
+                analyse_block(loop_expr.body.stmts.clone(), fields.clone(), mission_states, true, loops, parent_loops, state_name.clone());
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -76,6 +78,7 @@ fn analyse_block(
                             fields: fields.clone(),
                             stmts: Vec::new(),
                             next_mission: None,
+                            state_name: state_name.clone()
                         });
                         active_mission_state.as_mut().unwrap()
                     }
@@ -135,9 +138,14 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(item as ItemFn);
 
+    // Generates the names of the generated structures from the name of the input function
+    let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
+    let mission_name = format_ident!("{}Mission", base_name);
+    let state_name = format_ident!("{}MissionState", base_name);
+
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
-    analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false, &mut loop_indexes, Vec::new());
+    analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false, &mut loop_indexes, Vec::new(), state_name.clone());
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
             mission_states[i].next_mission = Some(Box::new(mission_states[i + 1].clone()))
@@ -158,23 +166,23 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let match_arms = mission_states.iter().map(|m| m.match_arm());
 
     let expanded = quote! {
-        enum GeneratedMissionState {
+        enum #state_name {
             #(#declaration,)*
         }
 
-        pub struct GeneratedMission {
-            state: GeneratedMissionState,
+        pub struct #mission_name {
+            state: #state_name,
         }
 
-        impl GeneratedMission {
-            pub fn new() -> GeneratedMission {
-                GeneratedMission {
+        impl #mission_name {
+            pub fn new() -> #mission_name {
+                #mission_name {
                     state: todo!()
                 }
             }
         }
 
-        impl Mission for GeneratedMission {
+        impl Mission for #mission_name {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult {

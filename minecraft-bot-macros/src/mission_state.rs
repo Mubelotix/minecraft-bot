@@ -8,6 +8,7 @@ pub(crate) struct MissionState {
     pub(crate) fields: Vec<(Option<token::Mut>, Ident, PermissiveType)>,
     pub(crate) stmts: Vec<Stmt>,
     pub(crate) next_mission: Option<Box<MissionState>>,
+    pub(crate) state_name: Ident,
 }
 
 impl MissionState {
@@ -26,21 +27,22 @@ impl MissionState {
         let variant_field_idents = self.fields.iter().map(|t| &t.1);
         let variant_field_idents2 = self.fields.iter().map(|t| &t.1);
         let variant_field_mutability = self.fields.iter().map(|t| &t.0);
+        let state_name = &self.state_name;
 
         if let Some(next_mission) = &self.next_mission {
             let next_variant_ident = &next_mission.variant_ident;
             let next_variant_fields = next_mission.fields.iter().map(|f| &f.1);
 
             quote! {
-                GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                #state_name::#variant_ident { #(#variant_field_idents,)* } => {
                     #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
                     #(#stmts)*
-                    self.state = GeneratedMissionState::#next_variant_ident { #(#next_variant_fields, )* };
+                    self.state = #state_name::#next_variant_ident { #(#next_variant_fields, )* };
                 },
             }
         } else {
             quote! {
-                GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                #state_name::#variant_ident { #(#variant_field_idents,)* } => {
                     #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
                     #(#stmts)*
                 },
@@ -51,8 +53,9 @@ impl MissionState {
     pub(crate) fn switch_to_this_state(&self) -> Expr {
         let variant_ident = &self.variant_ident;
         let fields = self.fields.iter().map(|f| &f.1);
+        let state_name = &self.state_name;
         let tokens = quote! {{
-            self.state = GeneratedMissionState::#variant_ident { #(#fields, )* };
+            self.state = #state_name::#variant_ident { #(#fields, )* };
             return MissionResult::InProgress;
         }};
         syn::parse2(tokens).unwrap()
