@@ -7,7 +7,6 @@ use syn::*;
 #[derive(Debug, Clone)]
 struct MissionState {
     variant_ident: Ident,
-    is_loop: bool,
     fields: Vec<(Option<token::Mut>, Ident, PermissiveType)>,
     stmts: Vec<Stmt>,
     next_mission: Option<Box<MissionState>>,
@@ -34,21 +33,12 @@ impl MissionState {
             let next_variant_ident = &next_mission.variant_ident;
             let next_variant_fields = next_mission.fields.iter().map(|f| &f.1);
 
-            if !self.is_loop {
-                quote! {
-                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
-                        #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
-                        #(#stmts)*
-                        self.state = GeneratedMissionState::#next_variant_ident { #(#next_variant_fields, )* };
-                    },
-                }
-            } else {
-                quote! (
-                    GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
-                        #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
-                        #(#stmts)*
-                    },
-                )
+            quote! {
+                GeneratedMissionState::#variant_ident { #(#variant_field_idents,)* } => {
+                    #(let #variant_field_mutability #variant_field_idents2 = *#variant_field_idents2;)*
+                    #(#stmts)*
+                    self.state = GeneratedMissionState::#next_variant_ident { #(#next_variant_fields, )* };
+                },
             }
         } else {
             quote! {
@@ -76,20 +66,14 @@ impl ToTokens for PermissiveType {
     }
 }
 
-#[proc_macro_attribute]
-pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse the input tokens into a syntax tree
-    let input = parse_macro_input!(item as ItemFn);
-
-    println!("{:#?}", input.block);
-
-    let mut mission_states: Vec<MissionState> = Vec::new();
+fn analyse_block(items: Vec<Stmt>, mut fields: Vec<(Option<token::Mut>, Ident, PermissiveType)>, mission_states: &mut Vec<MissionState>, is_loop: bool) {
     let mut active_mission_state: Option<MissionState> = None;
-    let mut fields = Vec::new();
-    for (idx, item) in input.block.stmts.iter().enumerate() {
+    let first_idx = mission_states.len();
+
+    for item in items.iter() {
         // Add the new variant
         // Its created fields are added later so that they are accessible for the next variants only
-        let variant_ident = format_ident!("State{}", idx);
+        let variant_ident = format_ident!("State{}", mission_states.len());
 
         match item {
             Stmt::Local(local) if matches!(local.init.as_ref().map(|(_, b)| *b.clone()), Some(Expr::Loop(_))) => {
@@ -102,15 +86,14 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     _ => unreachable!(),
                 };
 
-                let looping_mission_state = MissionState {
-                    variant_ident,
-                    is_loop: true,
-                    fields: fields.clone(),
-                    stmts: loop_expr.body.stmts,
-                    next_mission: None,
-                };
-                
-                mission_states.push(looping_mission_state);
+                analyse_block(loop_expr.body.stmts, fields.clone(), mission_states, true);
+            }
+            Stmt::Expr(Expr::Loop(loop_expr)) => {
+                if let Some(active_mission_state) = active_mission_state.take() {
+                    mission_states.push(active_mission_state);
+                }
+
+                analyse_block(loop_expr.body.stmts.clone(), fields.clone(), mission_states, true);
             }
             expr => {
                 let active_mission_state = match &mut active_mission_state {
@@ -118,7 +101,6 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     None => {
                         active_mission_state = Some(MissionState {
                             variant_ident,
-                            is_loop: false,
                             fields: fields.clone(),
                             stmts: Vec::new(),
                             next_mission: None,
@@ -165,11 +147,30 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Some(active_mission_state) = active_mission_state.take() {
-        mission_states.push(active_mission_state)
+        mission_states.push(active_mission_state);
     }
+    
+    if is_loop {
+        if let Some(first) = mission_states.get(first_idx).cloned() {
+            let last = mission_states.last_mut().unwrap();
+            last.next_mission = Some(Box::new(first));
+        }
+    }
+}
 
+#[proc_macro_attribute]
+pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the input tokens into a syntax tree
+    let input = parse_macro_input!(item as ItemFn);
+
+    println!("{:#?}", input.block);
+
+    let mut mission_states: Vec<MissionState> = Vec::new();
+    analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false);
     for i in 0..mission_states.len() - 1 {
-        mission_states[i].next_mission = Some(Box::new(mission_states[i+1].clone()));
+        if mission_states[i].next_mission.is_none() {
+            mission_states[i].next_mission = Some(Box::new(mission_states[i+1].clone()))
+        }
     }
 
     let declaration = mission_states.iter().map(|m| m.declaration());

@@ -16,26 +16,18 @@ pub trait Mission {
 
 #[fsm]
 fn test() {
-    let (mut action_id, id): (u16, u8) = {
-        let mut action_id = 8;
-        let id = 12;
-        (action_id, id)
-    };
+    let test: u8 = 255;
 
-    let test: u8 = {
-        let test = 25;
-        test
-    };
+    loop {
+        let youpi: i32 = 42;
+        let yipou: i32 = 64;
 
-    let data: u8 = loop {
-        if test == 25 {
-            break;
+        loop {
+            println!("A great day isn't it");
         }
-    };
+    }
 
     {
         println!("yeah");
     }
-
-    
 }
