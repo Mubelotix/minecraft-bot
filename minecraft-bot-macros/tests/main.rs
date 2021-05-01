@@ -20,14 +20,20 @@ fn test() {
 
     'mt_main: loop {   
         let youpi: i32 = 42;
-        let yipou: i32 = 64;
+        let mut yipou: i32 = 64;
 
         'mt_inner: loop {
-            println!("A great day isn't it");
+            yipou += 1;
+            if yipou > 120 {
+                break 'mt_main;
+            }
         }
     }
 
     {
         println!("yeah");
     }
+
+    let mut x: u8 = 7;
+    x = 5;
 }
