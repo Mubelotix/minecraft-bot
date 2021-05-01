@@ -133,6 +133,23 @@ fn analyse_block(
     }
 }
 
+fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_name: &Ident) -> ItemFn {
+    function.sig.output = parse2(quote! { -> #mission_name  }).unwrap();
+    let mission_fields = function.sig.inputs.iter().map(|i| match i {
+        FnArg::Receiver(_) => panic!("Cannot use methods"),
+        FnArg::Typed(ty) => &ty.pat
+    });
+
+    function.block = Box::new(parse2(quote!{{
+        #mission_name {
+            state: #state_name::State0{},
+            #(#mission_fields,)*
+        }
+    }}).expect("Failed to create a mission builder"));
+
+    function
+}
+
 #[proc_macro_attribute]
 pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
@@ -142,6 +159,9 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
     let mission_name = format_ident!("{}Mission", base_name);
     let state_name = format_ident!("{}MissionState", base_name);
+
+    // Modify the function so that it creates a mission instead
+    let mission_builder = generate_mission_builder(input.clone(), &mission_name, &state_name);
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
@@ -164,22 +184,22 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let declaration = mission_states.iter().map(|m| m.declaration());
     let match_arms = mission_states.iter().map(|m| m.match_arm());
+    let mission_fields = input.sig.inputs.iter().map(|i| match i {
+        FnArg::Receiver(_) => panic!("Cannot use methods"),
+        FnArg::Typed(ty) => ty
+    });
+    let visibility = input.vis;
 
     let expanded = quote! {
         enum #state_name {
             #(#declaration,)*
         }
 
-        pub struct #mission_name {
-            state: #state_name,
-        }
+        #mission_builder
 
-        impl #mission_name {
-            pub fn new() -> #mission_name {
-                #mission_name {
-                    state: todo!()
-                }
-            }
+        #visibility struct #mission_name {
+            state: #state_name,
+            #(#mission_fields,)*
         }
 
         impl Mission for #mission_name {

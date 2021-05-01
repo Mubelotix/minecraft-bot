@@ -15,7 +15,7 @@ pub trait Mission {
 }
 
 #[tick_distributed]
-fn test() {
+fn test(lorem: String, ipsum: u16, dolor: u8) {
     let test: u8 = 255;
     let mut youpi: i32 = 42;
     let mut yipou: i32 = 64;
