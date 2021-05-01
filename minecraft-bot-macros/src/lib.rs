@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use quote::{ToTokens, format_ident, quote};
 use proc_macro2::*;
+use quote::{format_ident, quote, ToTokens};
 use syn::*;
 
 #[derive(Debug, Clone)]
@@ -76,7 +76,12 @@ fn analyse_block(items: Vec<Stmt>, mut fields: Vec<(Option<token::Mut>, Ident, P
         let variant_ident = format_ident!("State{}", mission_states.len());
 
         match item {
-            Stmt::Local(local) if matches!(local.init.as_ref().map(|(_, b)| *b.clone()), Some(Expr::Loop(_))) => {
+            Stmt::Local(local)
+                if matches!(local.init.as_ref().map(|(_, b)| *b.clone()), Some(Expr::Loop(ExprLoop {
+                label: Some(label),
+                ..
+            })) if label.name.ident.to_string().starts_with("mt_")) =>
+            {
                 if let Some(active_mission_state) = active_mission_state.take() {
                     mission_states.push(active_mission_state);
                 }
@@ -86,12 +91,16 @@ fn analyse_block(items: Vec<Stmt>, mut fields: Vec<(Option<token::Mut>, Ident, P
                     _ => unreachable!(),
                 };
 
+                println!("{:?}", loop_expr.label.unwrap().name.ident.to_string());
+
                 analyse_block(loop_expr.body.stmts, fields.clone(), mission_states, true);
             }
-            Stmt::Expr(Expr::Loop(loop_expr)) => {
+            Stmt::Expr(Expr::Loop(loop_expr)) if loop_expr.label.is_some() && loop_expr.label.as_ref().unwrap().name.ident.to_string().starts_with("mt_") => {
                 if let Some(active_mission_state) = active_mission_state.take() {
                     mission_states.push(active_mission_state);
                 }
+
+                println!("{:?}", loop_expr.label.as_ref().unwrap().name.ident.to_string());
 
                 analyse_block(loop_expr.body.stmts.clone(), fields.clone(), mission_states, true);
             }
@@ -149,7 +158,7 @@ fn analyse_block(items: Vec<Stmt>, mut fields: Vec<(Option<token::Mut>, Ident, P
     if let Some(active_mission_state) = active_mission_state.take() {
         mission_states.push(active_mission_state);
     }
-    
+
     if is_loop {
         if let Some(first) = mission_states.get(first_idx).cloned() {
             let last = mission_states.last_mut().unwrap();
@@ -159,7 +168,7 @@ fn analyse_block(items: Vec<Stmt>, mut fields: Vec<(Option<token::Mut>, Ident, P
 }
 
 #[proc_macro_attribute]
-pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input = parse_macro_input!(item as ItemFn);
 
@@ -169,7 +178,7 @@ pub fn fsm(_attr: TokenStream, item: TokenStream) -> TokenStream {
     analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false);
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
-            mission_states[i].next_mission = Some(Box::new(mission_states[i+1].clone()))
+            mission_states[i].next_mission = Some(Box::new(mission_states[i + 1].clone()))
         }
     }
 

@@ -14,15 +14,15 @@ pub trait Mission {
     fn execute(&mut self, bot: &mut Bot) -> MissionResult;
 }
 
-#[fsm]
+#[tick_distributed]
 fn test() {
     let test: u8 = 255;
 
-    loop {
+    'mt_main: loop {   
         let youpi: i32 = 42;
         let yipou: i32 = 64;
 
-        loop {
+        'mt_inner: loop {
             println!("A great day isn't it");
         }
     }
