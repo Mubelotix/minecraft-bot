@@ -17,10 +17,14 @@ pub trait Mission {
 #[tick_distributed]
 fn test() {
     let test: u8 = 255;
+    let mut youpi: i32 = 42;
+    let mut yipou: i32 = 64;
 
     'mt_main: loop {   
-        let youpi: i32 = 42;
-        let mut yipou: i32 = 64;
+        youpi += 1;
+        if youpi < 60 {
+            continue 'mt_main;
+        }
 
         'mt_inner: loop {
             yipou += 1;
@@ -28,6 +32,8 @@ fn test() {
                 break 'mt_main;
             }
         }
+
+        println!("t");
     }
 
     {

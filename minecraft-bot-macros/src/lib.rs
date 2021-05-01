@@ -56,11 +56,11 @@ impl MissionState {
     fn switch_to_this_state(&self) -> Expr {
         let variant_ident = &self.variant_ident;
         let fields = self.fields.iter().map(|f| &f.1);
-        let tokens = quote! {
-            {self.state = GeneratedMissionState::#variant_ident { #(#fields, )* };}
-        };
-        println!("{}", tokens.to_string());
-        syn::parse2(tokens).expect("shit")
+        let tokens = quote! {{
+            self.state = GeneratedMissionState::#variant_ident { #(#fields, )* };
+            return MissionResult::InProgress;
+        }};
+        syn::parse2(tokens).unwrap()
     }
 }
 
@@ -401,6 +401,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl Mission for GeneratedMission {
             #[allow(unused_variables)]
+            #[allow(unused_mut)]
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult {
                 match &mut self.state {
                     #(#match_arms)*
