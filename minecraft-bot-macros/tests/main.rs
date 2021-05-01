@@ -32,8 +32,6 @@ fn test() {
                 break 'mt_main;
             }
         }
-
-        println!("t");
     }
 
     {
