@@ -40,4 +40,5 @@ fn test(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
 
     let mut x: u8 = 7;
     x = 5;
+    Ok(42)
 }

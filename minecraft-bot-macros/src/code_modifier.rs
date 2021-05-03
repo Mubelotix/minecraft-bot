@@ -125,7 +125,7 @@ pub(crate) fn replace_breaks_and_continues_in_expr(expr: &mut Expr, loops: &Hash
             };
 
             let tokens = quote! {{
-                self.state = #state_name::Done;
+                self.state = #state_name::Done {};
                 return MissionResult::Done(#returned_expr);
             }};
             *expr = syn::parse2(tokens).unwrap();

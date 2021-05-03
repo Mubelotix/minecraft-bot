@@ -1,14 +1,14 @@
 extern crate proc_macro;
 use std::collections::HashMap;
 
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::*;
 use quote::{format_ident, quote};
 use syn::*;
-use convert_case::{Case, Casing};
 
-mod mission_state;
 mod code_modifier;
+mod mission_state;
 use code_modifier::*;
 use mission_state::*;
 
@@ -50,7 +50,15 @@ fn analyse_block(
                 parent_loops.push(label.clone());
 
                 let continue_index = mission_states.len();
-                analyse_block(loop_expr.body.stmts, fields.clone(), mission_states, true, loops, parent_loops, state_name.clone());
+                analyse_block(
+                    loop_expr.body.stmts,
+                    fields.clone(),
+                    mission_states,
+                    true,
+                    loops,
+                    parent_loops,
+                    state_name.clone(),
+                );
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -64,7 +72,15 @@ fn analyse_block(
                 parent_loops.push(label.clone());
 
                 let continue_index = mission_states.len();
-                analyse_block(loop_expr.body.stmts.clone(), fields.clone(), mission_states, true, loops, parent_loops, state_name.clone());
+                analyse_block(
+                    loop_expr.body.stmts.clone(),
+                    fields.clone(),
+                    mission_states,
+                    true,
+                    loops,
+                    parent_loops,
+                    state_name.clone(),
+                );
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -78,7 +94,7 @@ fn analyse_block(
                             fields: fields.clone(),
                             stmts: Vec::new(),
                             next_mission: None,
-                            state_name: state_name.clone()
+                            state_name: state_name.clone(),
                         });
                         active_mission_state.as_mut().unwrap()
                     }
@@ -137,15 +153,18 @@ fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_na
     function.sig.output = parse2(quote! { -> #mission_name  }).unwrap();
     let mission_fields = function.sig.inputs.iter().map(|i| match i {
         FnArg::Receiver(_) => panic!("Cannot use methods"),
-        FnArg::Typed(ty) => &ty.pat
+        FnArg::Typed(ty) => &ty.pat,
     });
 
-    function.block = Box::new(parse2(quote!{{
-        #mission_name {
-            state: #state_name::State0{},
-            #(#mission_fields,)*
-        }
-    }}).expect("Failed to create a mission builder"));
+    function.block = Box::new(
+        parse2(quote! {{
+            #mission_name {
+                state: #state_name::State0{},
+                #(#mission_fields,)*
+            }
+        }})
+        .expect("Failed to create a mission builder"),
+    );
 
     function
 }
@@ -165,7 +184,15 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
-    analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false, &mut loop_indexes, Vec::new(), state_name.clone());
+    analyse_block(
+        input.block.stmts,
+        Vec::new(),
+        &mut mission_states,
+        false,
+        &mut loop_indexes,
+        Vec::new(),
+        state_name.clone(),
+    );
 
     let mut loops: HashMap<String, (Box<MissionState>, Box<MissionState>)> = HashMap::new();
     for (label, (continue_index, break_index)) in loop_indexes {
@@ -173,17 +200,26 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let break_state = mission_states.get(break_index).unwrap().clone();
         loops.insert(label, (Box::new(continue_state), Box::new(break_state)));
     }
+    if let Some(last_state) = mission_states.last_mut() {
+        if let Some(last_stmt) = last_state.stmts.last_mut() {
+            if let Stmt::Expr(last_expr) = last_stmt {
+                if !matches!(last_expr, Expr::Return(_)) {
+                    *last_expr = syn::parse2(quote! {
+                        return #last_expr
+                    })
+                    .unwrap();
+                }
+            } else {
+                *last_stmt = syn::parse2(quote! {
+                    return ();
+                })
+                .unwrap();
+            }
+        }
+    }
     for mission_state in &mut mission_states {
         replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &state_name);
     }
-    mission_states.push(MissionState {
-        variant_ident: format_ident!("Done"),
-        parent_loops: Vec::new(),
-        fields: Vec::new(),
-        stmts: syn::parse2::<Block>(quote!{{return MissionResult::Outdated;}}).unwrap().stmts,
-        next_mission: None,
-        state_name: state_name.clone(),
-    });
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
             mission_states[i].next_mission = Some(Box::new(mission_states[i + 1].clone()))
@@ -194,7 +230,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let match_arms = mission_states.iter().map(|m| m.match_arm());
     let mission_fields = input.sig.inputs.iter().map(|i| match i {
         FnArg::Receiver(_) => panic!("Cannot use methods"),
-        FnArg::Typed(ty) => ty
+        FnArg::Typed(ty) => ty,
     });
     let visibility = input.vis;
     let output = match input.sig.output {
@@ -205,6 +241,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         enum #state_name {
             #(#declaration,)*
+            Done
         }
 
         #mission_builder
@@ -220,6 +257,9 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult<#output> {
                 match &mut self.state {
                     #(#match_arms)*
+                    #state_name::Done => {
+                        return MissionResult::Outdated;
+                    }
                 }
                 MissionResult::InProgress
             }
