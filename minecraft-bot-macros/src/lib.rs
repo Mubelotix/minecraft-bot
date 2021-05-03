@@ -166,11 +166,6 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
     analyse_block(input.block.stmts, Vec::new(), &mut mission_states, false, &mut loop_indexes, Vec::new(), state_name.clone());
-    for i in 0..mission_states.len() - 1 {
-        if mission_states[i].next_mission.is_none() {
-            mission_states[i].next_mission = Some(Box::new(mission_states[i + 1].clone()))
-        }
-    }
 
     let mut loops: HashMap<String, (Box<MissionState>, Box<MissionState>)> = HashMap::new();
     for (label, (continue_index, break_index)) in loop_indexes {
@@ -180,6 +175,19 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     for mission_state in &mut mission_states {
         replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &state_name);
+    }
+    mission_states.push(MissionState {
+        variant_ident: format_ident!("Done"),
+        parent_loops: Vec::new(),
+        fields: Vec::new(),
+        stmts: syn::parse2::<Block>(quote!{{return MissionResult::Outdated;}}).unwrap().stmts,
+        next_mission: None,
+        state_name: state_name.clone(),
+    });
+    for i in 0..mission_states.len() - 1 {
+        if mission_states[i].next_mission.is_none() {
+            mission_states[i].next_mission = Some(Box::new(mission_states[i + 1].clone()))
+        }
     }
 
     let declaration = mission_states.iter().map(|m| m.declaration());
@@ -197,7 +205,6 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         enum #state_name {
             #(#declaration,)*
-            Done,
         }
 
         #mission_builder
@@ -213,9 +220,6 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult<#output> {
                 match &mut self.state {
                     #(#match_arms)*
-                    #state_name::Done => {
-                        return MissionResult::Outdated;
-                    }
                 }
                 MissionResult::InProgress
             }
