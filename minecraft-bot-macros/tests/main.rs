@@ -4,18 +4,18 @@ pub struct Bot {
 
 }
 
-pub enum MissionResult {
-    Done,
-    Failed,
+pub enum MissionResult<T> {
     InProgress,
+    Done(T),
+    Outdated,
 }
 
-pub trait Mission {
-    fn execute(&mut self, bot: &mut Bot) -> MissionResult;
+pub trait Mission<T> {
+    fn execute(&mut self, bot: &mut Bot) -> MissionResult<T>;
 }
 
 #[tick_distributed]
-fn test(lorem: String, ipsum: u16, dolor: u8) {
+fn test(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
     let test: u8 = 255;
     let mut youpi: i32 = 42;
     let mut yipou: i32 = 64;

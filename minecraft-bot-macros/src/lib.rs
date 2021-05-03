@@ -179,7 +179,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         loops.insert(label, (Box::new(continue_state), Box::new(break_state)));
     }
     for mission_state in &mut mission_states {
-        replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops);
+        replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &state_name);
     }
 
     let declaration = mission_states.iter().map(|m| m.declaration());
@@ -189,10 +189,15 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         FnArg::Typed(ty) => ty
     });
     let visibility = input.vis;
+    let output = match input.sig.output {
+        ReturnType::Default => panic!("Cannot return default type in this context"),
+        ReturnType::Type(_, ty) => ty,
+    };
 
     let expanded = quote! {
         enum #state_name {
             #(#declaration,)*
+            Done,
         }
 
         #mission_builder
@@ -202,12 +207,15 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #(#mission_fields,)*
         }
 
-        impl Mission for #mission_name {
+        impl Mission<#output> for #mission_name {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
-            fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult {
+            fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult<#output> {
                 match &mut self.state {
                     #(#match_arms)*
+                    #state_name::Done => {
+                        return MissionResult::Outdated;
+                    }
                 }
                 MissionResult::InProgress
             }
