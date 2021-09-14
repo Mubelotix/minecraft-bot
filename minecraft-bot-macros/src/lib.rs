@@ -1,11 +1,13 @@
 extern crate proc_macro;
 use std::collections::HashMap;
+use proc_macro2_diagnostics::{SpanDiagnosticExt, Diagnostic};
 
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::*;
 use quote::{format_ident, quote};
 use syn::*;
+use std::result::Result;
 
 mod code_modifier;
 mod mission_state;
@@ -20,7 +22,7 @@ fn analyse_block(
     loops: &mut HashMap<String, (usize, usize)>,
     parent_loops: Vec<String>,
     state_name: Ident,
-) {
+) -> Result<(), Diagnostic> {
     let mut active_mission_state: Option<MissionState> = None;
     let first_idx = mission_states.len();
 
@@ -58,7 +60,7 @@ fn analyse_block(
                     loops,
                     parent_loops,
                     state_name.clone(),
-                );
+                )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -80,7 +82,7 @@ fn analyse_block(
                     loops,
                     parent_loops,
                     state_name.clone(),
-                );
+                )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
@@ -106,6 +108,9 @@ fn analyse_block(
         if let Stmt::Local(local) = item {
             let pat = match &local.pat {
                 Pat::Type(pat) => pat,
+                Pat::Ident(pat_ident) => {
+                    return Err(pat_ident.ident.span().error("The tick-distributed macro cannot infer type, please explicitely specify it."))
+                },
                 other => panic!("unsupported pat {:?} in function", other),
             };
 
@@ -147,6 +152,8 @@ fn analyse_block(
             last.next_mission = Some(Box::new(first));
         }
     }
+
+    Ok(())
 }
 
 fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_name: &Ident) -> ItemFn {
@@ -184,7 +191,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
-    analyse_block(
+    let r = analyse_block(
         input.block.stmts,
         Vec::new(),
         &mut mission_states,
@@ -193,6 +200,9 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         Vec::new(),
         state_name.clone(),
     );
+    if let Err(e) = r {
+        return TokenStream::from(e.emit_as_item_tokens());
+    }
 
     let mut loops: HashMap<String, (Box<MissionState>, Box<MissionState>)> = HashMap::new();
     for (label, (continue_index, break_index)) in loop_indexes {

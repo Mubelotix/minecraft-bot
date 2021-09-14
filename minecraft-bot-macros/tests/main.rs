@@ -22,6 +22,8 @@ fn test(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
 
     'mt_main: loop {   
         youpi += 1;
+        let test2: i32 = 5;
+        let test3: u64 = 5;
         if youpi < 60 {
             continue 'mt_main;
         }
