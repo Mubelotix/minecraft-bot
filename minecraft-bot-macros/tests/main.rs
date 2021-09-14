@@ -1,9 +1,8 @@
 use minecraft_bot_macros::*;
 
-pub struct Bot {
+pub struct Bot {}
 
-}
-
+#[derive(Debug, PartialEq)]
 pub enum MissionResult<T> {
     InProgress,
     Done(T),
@@ -15,12 +14,12 @@ pub trait Mission<T> {
 }
 
 #[tick_distributed]
-fn test(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
+fn mission(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
     let test: u8 = 255;
     let mut youpi: i32 = 42;
     let mut yipou: i32 = 64;
 
-    'mt_main: loop {   
+    'mt_main: loop {
         youpi += 1;
         let test2: i32 = 5;
         let test3: u64 = 5;
@@ -36,11 +35,16 @@ fn test(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
         }
     }
 
-    {
-        println!("yeah");
-    }
+    println!("yeah");
 
     let mut x: u8 = 7;
     x = 5;
     Ok(42)
+}
+
+#[test]
+fn test() {
+    let mut mission = mission("lorem".to_string(), 5, 5);
+
+    while mission.execute(&mut Bot {}) == MissionResult::InProgress {}
 }

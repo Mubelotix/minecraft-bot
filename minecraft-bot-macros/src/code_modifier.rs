@@ -1,9 +1,14 @@
-use syn::*;
 use crate::mission_state::*;
-use std::collections::HashMap;
 use quote::quote;
+use std::collections::HashMap;
+use syn::*;
 
-pub(crate) fn replace_breaks_and_continues_in_expr(expr: &mut Expr, loops: &HashMap<String, (Box<MissionState>, Box<MissionState>)>, parent_loops: &[String], state_name: &Ident) {
+pub(crate) fn replace_breaks_and_continues_in_expr(
+    expr: &mut Expr,
+    loops: &HashMap<String, (Box<MissionState>, Box<MissionState>)>,
+    parent_loops: &[String],
+    state_name: &Ident,
+) {
     match expr {
         Expr::Array(expr) => {
             for expr in &mut expr.elems {
@@ -125,11 +130,11 @@ pub(crate) fn replace_breaks_and_continues_in_expr(expr: &mut Expr, loops: &Hash
             };
 
             let tokens = quote! {{
-                self.state = #state_name::Done {};
+                *self = #state_name::Done {};
                 return MissionResult::Done(#returned_expr);
             }};
             *expr = syn::parse2(tokens).unwrap();
-        },
+        }
         Expr::Struct(expr) => {
             for field in &mut expr.fields {
                 replace_breaks_and_continues_in_expr(&mut field.expr, loops, parent_loops, state_name);
@@ -140,8 +145,10 @@ pub(crate) fn replace_breaks_and_continues_in_expr(expr: &mut Expr, loops: &Hash
         }
         Expr::Try(_) => todo!(),
         Expr::TryBlock(_) => todo!(),
-        Expr::Tuple(expr) => for elem in &mut expr.elems {
-            replace_breaks_and_continues_in_expr(elem, loops, parent_loops, state_name);
+        Expr::Tuple(expr) => {
+            for elem in &mut expr.elems {
+                replace_breaks_and_continues_in_expr(elem, loops, parent_loops, state_name);
+            }
         }
         Expr::Type(expr) => replace_breaks_and_continues_in_expr(&mut expr.expr, loops, parent_loops, state_name),
         Expr::Unary(expr) => replace_breaks_and_continues_in_expr(&mut expr.expr, loops, parent_loops, state_name),
@@ -151,14 +158,21 @@ pub(crate) fn replace_breaks_and_continues_in_expr(expr: &mut Expr, loops: &Hash
             replace_breaks_and_continues_in_expr(&mut expr.cond, loops, parent_loops, state_name);
             replace_breaks_and_continues(&mut expr.body.stmts, loops, parent_loops, state_name);
         }
-        Expr::Yield(expr) => if let Some(expr) = &mut expr.expr {
-            replace_breaks_and_continues_in_expr(expr, loops, parent_loops, state_name);
-        },
+        Expr::Yield(expr) => {
+            if let Some(expr) = &mut expr.expr {
+                replace_breaks_and_continues_in_expr(expr, loops, parent_loops, state_name);
+            }
+        }
         Expr::__TestExhaustive(_) => {}
     }
 }
 
-pub(crate) fn replace_breaks_and_continues(stmts: &mut Vec<Stmt>, loops: &HashMap<String, (Box<MissionState>, Box<MissionState>)>, parent_loops: &[String], state_name: &Ident) {
+pub(crate) fn replace_breaks_and_continues(
+    stmts: &mut Vec<Stmt>,
+    loops: &HashMap<String, (Box<MissionState>, Box<MissionState>)>,
+    parent_loops: &[String],
+    state_name: &Ident,
+) {
     for stmt in stmts {
         match stmt {
             Stmt::Local(stmt) => {

@@ -1,13 +1,13 @@
 extern crate proc_macro;
+use proc_macro2_diagnostics::{Diagnostic, SpanDiagnosticExt};
 use std::collections::HashMap;
-use proc_macro2_diagnostics::{SpanDiagnosticExt, Diagnostic};
 
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::*;
 use quote::{format_ident, quote};
-use syn::*;
 use std::result::Result;
+use syn::*;
 
 mod code_modifier;
 mod mission_state;
@@ -21,7 +21,7 @@ fn analyse_block(
     is_loop: bool,
     loops: &mut HashMap<String, (usize, usize)>,
     parent_loops: Vec<String>,
-    state_name: Ident,
+    mission_name: Ident,
 ) -> Result<(), Diagnostic> {
     let mut active_mission_state: Option<MissionState> = None;
     let first_idx = mission_states.len();
@@ -59,7 +59,7 @@ fn analyse_block(
                     true,
                     loops,
                     parent_loops,
-                    state_name.clone(),
+                    mission_name.clone(),
                 )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
@@ -81,7 +81,7 @@ fn analyse_block(
                     true,
                     loops,
                     parent_loops,
-                    state_name.clone(),
+                    mission_name.clone(),
                 )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
@@ -96,7 +96,7 @@ fn analyse_block(
                             fields: fields.clone(),
                             stmts: Vec::new(),
                             next_mission: None,
-                            state_name: state_name.clone(),
+                            mission_name: mission_name.clone(),
                         });
                         active_mission_state.as_mut().unwrap()
                     }
@@ -109,8 +109,11 @@ fn analyse_block(
             let pat = match &local.pat {
                 Pat::Type(pat) => pat,
                 Pat::Ident(pat_ident) => {
-                    return Err(pat_ident.ident.span().error("The tick-distributed macro cannot infer type, please explicitely specify it."))
-                },
+                    return Err(pat_ident
+                        .ident
+                        .span()
+                        .error("The tick-distributed macro cannot infer type, please explicitely specify it."))
+                }
                 other => panic!("unsupported pat {:?} in function", other),
             };
 
@@ -156,7 +159,7 @@ fn analyse_block(
     Ok(())
 }
 
-fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_name: &Ident) -> ItemFn {
+fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident) -> ItemFn {
     function.sig.output = parse2(quote! { -> #mission_name  }).unwrap();
     let mission_fields = function.sig.inputs.iter().map(|i| match i {
         FnArg::Receiver(_) => panic!("Cannot use methods"),
@@ -165,10 +168,7 @@ fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_na
 
     function.block = Box::new(
         parse2(quote! {{
-            #mission_name {
-                state: #state_name::State0{},
-                #(#mission_fields,)*
-            }
+            #mission_name::State0{#(#mission_fields,)*}
         }})
         .expect("Failed to create a mission builder"),
     );
@@ -184,21 +184,34 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Generates the names of the generated structures from the name of the input function
     let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
     let mission_name = format_ident!("{}Mission", base_name);
-    let state_name = format_ident!("{}MissionState", base_name);
 
     // Modify the function so that it creates a mission instead
-    let mission_builder = generate_mission_builder(input.clone(), &mission_name, &state_name);
+    let mission_builder = generate_mission_builder(input.clone(), &mission_name);
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
     let r = analyse_block(
         input.block.stmts,
-        Vec::new(),
+        input
+            .sig
+            .inputs
+            .iter()
+            .map(|i| match i {
+                FnArg::Typed(ty) => {
+                    if let Pat::Ident(ident) = *ty.pat.clone() {
+                        (ident.mutability, ident.ident, PermissiveType::RestrictiveType(*ty.ty.clone()))
+                    } else {
+                        todo!()
+                    }
+                }
+                FnArg::Receiver(_) => panic!("Cannot use methods"),
+            })
+            .collect(),
         &mut mission_states,
         false,
         &mut loop_indexes,
         Vec::new(),
-        state_name.clone(),
+        mission_name.clone(),
     );
     if let Err(e) = r {
         return TokenStream::from(e.emit_as_item_tokens());
@@ -228,7 +241,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     for mission_state in &mut mission_states {
-        replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &state_name);
+        replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &mission_name);
     }
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
@@ -238,10 +251,6 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let declaration = mission_states.iter().map(|m| m.declaration());
     let match_arms = mission_states.iter().map(|m| m.match_arm());
-    let mission_fields = input.sig.inputs.iter().map(|i| match i {
-        FnArg::Receiver(_) => panic!("Cannot use methods"),
-        FnArg::Typed(ty) => ty,
-    });
     let visibility = input.vis;
     let output = match input.sig.output {
         ReturnType::Default => panic!("Cannot return default type in this context"),
@@ -249,25 +258,25 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        enum #state_name {
+        #visibility enum #mission_name {
             #(#declaration,)*
             Done
         }
 
         #mission_builder
 
-        #visibility struct #mission_name {
-            state: #state_name,
-            #(#mission_fields,)*
-        }
-
         impl Mission<#output> for #mission_name {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
             fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult<#output> {
-                match &mut self.state {
+                #[allow(clippy::mem_replace_with_uninit)]
+                #[allow(clippy::uninit_assumed_init)]
+                let state: #mission_name = unsafe { std::mem::replace(self, std::mem::MaybeUninit::uninit().assume_init()) };
+
+                match state {
                     #(#match_arms)*
-                    #state_name::Done => {
+                    #mission_name::Done => {
+                        *self = #mission_name::Done;
                         return MissionResult::Outdated;
                     }
                 }
