@@ -10,11 +10,11 @@ pub enum MissionResult<T> {
 }
 
 pub trait Mission<T> {
-    fn execute(&mut self, bot: &mut Bot) -> MissionResult<T>;
+    fn execute(&mut self, variable: usize) -> MissionResult<T>;
 }
 
 #[tick_distributed]
-fn mission(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> {
+fn mission(lorem: String, ipsum: u16, dolor: u8, mt_variable: usize) -> Result<usize, &'static str> {
     let test: u8 = 255;
     let mut youpi: i32 = 42;
     let mut yipou: i32 = 64;
@@ -24,6 +24,7 @@ fn mission(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> 
         let test2: i32 = 5;
         let test3: u64 = 5;
         if youpi < 60 {
+            println!("variable: {}", variable);
             continue 'mt_main;
         }
 
@@ -46,5 +47,8 @@ fn mission(lorem: String, ipsum: u16, dolor: u8) -> Result<usize, &'static str> 
 fn test() {
     let mut mission = mission("lorem".to_string(), 5, 5);
 
-    while mission.execute(&mut Bot {}) == MissionResult::InProgress {}
+    let mut i = 0;
+    while mission.execute(i) == MissionResult::InProgress {
+        i += 1;
+    }
 }

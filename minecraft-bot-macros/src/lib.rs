@@ -9,8 +9,10 @@ use quote::{format_ident, quote};
 use std::result::Result;
 use syn::*;
 
+mod arguments;
 mod code_modifier;
 mod mission_state;
+use arguments::*;
 use code_modifier::*;
 use mission_state::*;
 
@@ -159,23 +161,6 @@ fn analyse_block(
     Ok(())
 }
 
-fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident) -> ItemFn {
-    function.sig.output = parse2(quote! { -> #mission_name  }).unwrap();
-    let mission_fields = function.sig.inputs.iter().map(|i| match i {
-        FnArg::Receiver(_) => panic!("Cannot use methods"),
-        FnArg::Typed(ty) => &ty.pat,
-    });
-
-    function.block = Box::new(
-        parse2(quote! {{
-            #mission_name::State0{#(#mission_fields,)*}
-        }})
-        .expect("Failed to create a mission builder"),
-    );
-
-    function
-}
-
 #[proc_macro_attribute]
 pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
@@ -186,27 +171,13 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mission_name = format_ident!("{}Mission", base_name);
 
     // Modify the function so that it creates a mission instead
-    let mission_builder = generate_mission_builder(input.clone(), &mission_name);
+    let (mission_builder, init_args, mt_args) = generate_mission_builder(input.clone(), &mission_name);
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
     let r = analyse_block(
         input.block.stmts,
-        input
-            .sig
-            .inputs
-            .iter()
-            .map(|i| match i {
-                FnArg::Typed(ty) => {
-                    if let Pat::Ident(ident) = *ty.pat.clone() {
-                        (ident.mutability, ident.ident, PermissiveType::RestrictiveType(*ty.ty.clone()))
-                    } else {
-                        todo!()
-                    }
-                }
-                FnArg::Receiver(_) => panic!("Cannot use methods"),
-            })
-            .collect(),
+        init_args.iter().map(|a| a.into()).collect(),
         &mut mission_states,
         false,
         &mut loop_indexes,
@@ -256,6 +227,8 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         ReturnType::Default => panic!("Cannot return default type in this context"),
         ReturnType::Type(_, ty) => ty,
     };
+    let mt_args_idents = mt_args.iter().map(|a| &a.ident);
+    let mt_args_types = mt_args.iter().map(|a| &a.ty);
 
     let expanded = quote! {
         #visibility enum #mission_name {
@@ -268,7 +241,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl Mission<#output> for #mission_name {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
-            fn execute(&mut self, bot: &mut Bot /* todo add packets */) -> MissionResult<#output> {
+            fn execute(&mut self, #(#mt_args_idents: #mt_args_types, )*) -> MissionResult<#output> {
                 #[allow(clippy::mem_replace_with_uninit)]
                 #[allow(clippy::uninit_assumed_init)]
                 let state: #mission_name = unsafe { std::mem::replace(self, std::mem::MaybeUninit::uninit().assume_init()) };
