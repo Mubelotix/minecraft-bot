@@ -10,10 +10,10 @@ use std::result::Result;
 use syn::*;
 
 mod arguments;
-mod code_modifier;
+mod code_modifiers;
 mod mission_state;
 use arguments::*;
-use code_modifier::*;
+use code_modifiers::*;
 use mission_state::*;
 
 fn analyse_block(
@@ -212,7 +212,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     for mission_state in &mut mission_states {
-        replace_breaks_and_continues(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &mission_name);
+        replace_code(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &mission_name);
     }
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
