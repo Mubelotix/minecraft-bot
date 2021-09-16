@@ -192,7 +192,14 @@ fn analyse_block(
             if last.next_mission.is_none() {
                 last.next_mission = Some(Box::new(first));
             } else {
-                panic!("Nested loop bug")
+                mission_states.push(MissionState {
+                    variant_ident: format_ident!("State{}", mission_states.len()),
+                    parent_loops,
+                    fields,
+                    stmts: Vec::new(),
+                    next_mission: Some(Box::new(first)),
+                    mission_name,
+                });
             }
         }
     }
