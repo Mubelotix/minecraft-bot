@@ -47,15 +47,29 @@ impl MissionState {
         }
     }
 
-    pub(crate) fn switch_to_this_state(&self) -> Expr {
+    pub(crate) fn switch_to_this_state(&self, break_value: Option<Box<Expr>>) -> Expr {
         let variant_ident = &self.variant_ident;
-        let fields = self.fields.iter().map(|f| &f.1);
         let mission_name = &self.mission_name;
-        let tokens = quote! {{
-            *self = #mission_name::#variant_ident { #(#fields, )* };
-            return MissionResult::InProgress;
-        }};
-        syn::parse2(tokens).unwrap()
+        match break_value {
+            None => {
+                let fields = self.fields.iter().map(|f| &f.1);
+                let tokens = quote! {{
+                    *self = #mission_name::#variant_ident { #(#fields, )* };
+                    return MissionResult::InProgress;
+                }};
+                syn::parse2(tokens).expect("Code generation bug")
+            }
+            Some(break_value) => {
+                let mut fields = self.fields.clone();
+                let last_field_ident = fields.pop().unwrap().1;
+                let fields = fields.iter().map(|f| &f.1);
+                let tokens = quote! {{
+                    *self = #mission_name::#variant_ident { #(#fields, )* #last_field_ident: #break_value };
+                    return MissionResult::InProgress;
+                }};
+                syn::parse2(tokens).expect("Code generation bug")
+            }
+        }
     }
 }
 

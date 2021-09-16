@@ -88,6 +88,41 @@ fn analyse_block(
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
+            Stmt::Expr(Expr::Block(expr_block)) => {
+                if let Some(active_mission_state) = active_mission_state.take() {
+                    mission_states.push(active_mission_state);
+                }
+
+                analyse_block(
+                    expr_block.block.stmts.clone(),
+                    fields.clone(),
+                    mission_states,
+                    false,
+                    loops,
+                    parent_loops.clone(),
+                    mission_name.clone(),
+                )?;
+            }
+            Stmt::Local(Local { init: Some((_, init)), .. }) if matches!(*init.to_owned(), Expr::Block(_)) => {
+                let init = match *init.to_owned() {
+                    Expr::Block(block) => block,
+                    _ => unreachable!(),
+                };
+
+                if let Some(active_mission_state) = active_mission_state.take() {
+                    mission_states.push(active_mission_state);
+                }
+
+                analyse_block(
+                    init.block.stmts,
+                    fields.clone(),
+                    mission_states,
+                    false,
+                    loops,
+                    parent_loops.clone(),
+                    mission_name.clone(),
+                )?;
+            }
             expr => {
                 let active_mission_state = match &mut active_mission_state {
                     Some(active_mission_state) => active_mission_state,
@@ -154,7 +189,11 @@ fn analyse_block(
     if is_loop {
         if let Some(first) = mission_states.get(first_idx).cloned() {
             let last = mission_states.last_mut().unwrap();
-            last.next_mission = Some(Box::new(first));
+            if last.next_mission.is_none() {
+                last.next_mission = Some(Box::new(first));
+            } else {
+                panic!("Nested loop bug")
+            }
         }
     }
 
@@ -164,7 +203,8 @@ fn analyse_block(
 #[proc_macro_attribute]
 pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
-    let input = parse_macro_input!(item as ItemFn);
+    let mut input = parse_macro_input!(item as ItemFn);
+    replace_mt_functions(&mut input.block.stmts);
 
     // Generates the names of the generated structures from the name of the input function
     let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
