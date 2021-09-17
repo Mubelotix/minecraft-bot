@@ -21,7 +21,7 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
     send_packet(
         &mut stream,
         minecraft_protocol::packets::handshake::ServerboundPacket::Hello {
-            protocol_version: 754.into(),
+            protocol_version: 756.into(),
             server_address: addr,
             server_port: port,
             next_state: minecraft_protocol::packets::ConnectionState::Login,
@@ -45,10 +45,13 @@ pub fn connect(addr: &str, port: u16, username: &str) -> (mpsc::Receiver<Vec<u8>
 
     let response = read_packet(&stream, None, None).unwrap();
     let response_packet = minecraft_protocol::packets::login::ClientboundPacket::deserialize_uncompressed_minecraft_packet(&response).unwrap();
-    assert!(matches!(
+
+    if !matches!(
         response_packet,
         minecraft_protocol::packets::login::ClientboundPacket::LoginSuccess { .. }
-    ));
+    ) {
+        panic!("Login failed {:?}", response_packet);
+    }
 
     let stream2 = stream.try_clone().unwrap();
 

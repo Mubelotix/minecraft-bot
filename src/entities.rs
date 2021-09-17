@@ -482,12 +482,6 @@ impl Entities {
         entity.set_rotation(yaw, pitch);
     }
 
-    pub fn handle_entity_movement_packet(&mut self, entity_id: i32) {
-        if !self.entities.contains_key(&entity_id) {
-            warn!("Unsupported entity init by movement packet. Ignoring entity {}", entity_id);
-        }
-    }
-
     pub fn handle_destroy_entities_packet(&mut self, entity_ids: Vec<i32>) {
         for entity_id in entity_ids {
             if self.entities.remove(&entity_id).is_none() {
@@ -581,7 +575,7 @@ impl Entities {
     pub fn handle_entity_attributes_packet<'a>(
         &mut self,
         entity_id: i32,
-        attributes: minecraft_protocol::packets::Map<'a, minecraft_protocol::packets::Identifier<'a>, minecraft_protocol::components::entity::EntityAttribute<'a>, i32>,
+        attributes: minecraft_protocol::packets::Map<'a, minecraft_protocol::packets::Identifier<'a>, minecraft_protocol::components::entity::EntityAttribute<'a>, VarInt>,
     ) {
         let entity = match self.entities.get_mut(&entity_id) {
             Some(entity) => entity,

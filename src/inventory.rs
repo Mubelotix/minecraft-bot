@@ -358,7 +358,7 @@ impl Windows {
         trace!("Opening window {} (type={})", window_id, window_type);
     }
 
-    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Array<minecraft_protocol::components::slots::Slot, i16>) {
+    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Array<minecraft_protocol::components::slots::Slot, VarInt>) {
         trace!("Updating window {} ({} items)", window_id, slots.items.len());
         match window_id {
             0 => {
@@ -395,17 +395,7 @@ impl Windows {
             }
         }
     }
-
-    pub fn handle_window_confirmation_packet(&mut self, window_id: i8, action_id: i16, accepted: bool) {
-        if let Some(window_click_states) = self.window_click_states.get_mut(&window_id) {
-            if let Some(state) = window_click_states.get_mut(action_id as usize) {
-                *state = Some(accepted)
-            } else {
-                warn!("Window confirmation received with inexistant action_id: {} in {}", action_id, window_id);
-            }
-        }
-    }
-
+    
     pub fn handle_close_window_packet(&mut self, window_id: i8) {
         trace!("Closing window {}", window_id);
         let r1 = self.windows.remove(&window_id).is_none();

@@ -70,6 +70,7 @@ impl Bot {
                     chat_colors_enabled: true,
                     displayed_skin_parts: 127,
                     main_hand: MainHand::Right,
+                    disable_text_filtering: true,
                 }
                 .serialize_minecraft_packet()
                 .unwrap(),
@@ -183,6 +184,7 @@ impl Bot {
                 mut pitch,
                 flags,
                 teleport_id,
+                dismount_vehicle: _,
             } => {
                 if let Some(old_position) = &self.position {
                     if flags & 0x1 != 0 {
@@ -214,7 +216,7 @@ impl Bot {
                     on_ground: true,
                 });
             }
-            ClientboundPacket::SpawnPosition { location } => {
+            ClientboundPacket::SpawnPosition { location, angle: _ } => {
                 debug!("Spawn position set to {:?}", location);
                 self.spawn_position = Some(location);
             }
@@ -309,7 +311,7 @@ impl Bot {
             } => {
                 self.windows.handle_open_window_packet(window_id.0, window_type.0);
             }
-            ClientboundPacket::WindowItems { window_id, slots } => {
+            ClientboundPacket::WindowItems { window_id, slots, state_id, carried_item } => {
                 self.windows.handle_update_window_items_packet(window_id, slots);
             }
             ClientboundPacket::SetSlot {
@@ -318,20 +320,6 @@ impl Bot {
                 slot_value,
             } => {
                 self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
-            }
-            ClientboundPacket::WindowConfirmation {
-                window_id,
-                action_id,
-                accepted,
-            } => {
-                self.windows.handle_window_confirmation_packet(window_id, action_id, accepted);
-                if !accepted {
-                    responses.push(ServerboundPacket::WindowConfirmation {
-                        window_id,
-                        action_id,
-                        accepted,
-                    })
-                }
             }
             ClientboundPacket::CloseWindow { window_id } => {
                 self.windows.handle_close_window_packet(window_id);
@@ -436,10 +424,7 @@ impl Bot {
                 self.entities
                     .handle_entity_position_and_rotation_packet(entity_id.0, delta_x, delta_y, delta_z, yaw, pitch, on_ground);
             }
-            ClientboundPacket::EntityMovement { entity_id } => {
-                self.entities.handle_entity_movement_packet(entity_id.0);
-            }
-            ClientboundPacket::DestoryEntities { entity_ids } => {
+            ClientboundPacket::DestroyEntities { entity_ids } => {
                 self.entities
                     .handle_destroy_entities_packet(entity_ids.items.iter().map(|varint| varint.0).collect());
             }
