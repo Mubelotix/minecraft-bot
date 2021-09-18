@@ -291,14 +291,48 @@ impl Bot {
             } => {
                 if message.contains("dig down") {
                     *self.mission.lock().unwrap() = Some(Box::new(dig_down(12)));
+                } else if message.contains("test inventory 1") {
+                    self.windows.player_inventory.change_held_item(0);
+                    if let Some(item) = &self.windows.cursor().item {
+                        if item.item_id == Item::PinkWool {
+                            self.windows.click_slot(0, 36);
+                        }
+                    } else {
+                        for (id, slot) in self.windows.player_inventory.get_slots().iter().enumerate() {
+                            if let Some(item) = &slot.item {
+                                if item.item_id == Item::PinkWool {
+                                    self.windows.click_slot(0, id);
+                                    self.windows.click_slot(0, 36);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else if message.contains("test inventory 2") {
+                    self.windows.player_inventory.change_held_item(0);
+                    if let Some(item) = &self.windows.cursor().item {
+                        if item.item_id == Item::BlueWool {
+                            self.windows.click_slot(0, 36);
+                        }
+                    } else {
+                        for (id, slot) in self.windows.player_inventory.get_slots().iter().enumerate() {
+                            if let Some(item) = &slot.item {
+                                if item.item_id == Item::BlueWool {
+                                    self.windows.click_slot(0, id);
+                                    self.windows.click_slot(0, 36);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             ClientboundPacket::OpenWindow {
                 window_id,
                 window_type,
-                window_title: _,
+                window_title,
             } => {
-                self.windows.handle_open_window_packet(window_id.0, window_type.0);
+                self.windows.handle_open_window_packet(window_id.0, window_type, window_title);
             }
             ClientboundPacket::WindowItems {
                 window_id,
@@ -306,15 +340,15 @@ impl Bot {
                 state_id,
                 carried_item,
             } => {
-                self.windows.handle_update_window_items_packet(window_id, slots);
+                self.windows.handle_update_window_items_packet(window_id, slots.items, state_id.0, carried_item);
             }
             ClientboundPacket::SetSlot {
                 window_id,
-                state_id: _,
+                state_id,
                 slot_index,
                 slot_value,
             } => {
-                self.windows.handle_set_slot_packet(window_id, slot_index, slot_value);
+                self.windows.handle_set_slot_packet(window_id, state_id.0, slot_index, slot_value);
             }
             ClientboundPacket::CloseWindow { window_id } => {
                 self.windows.handle_close_window_packet(window_id);

@@ -5,6 +5,7 @@ use minecraft_protocol::{
     ids::{blocks::Block, items::Item},
     packets::{play_serverbound::ServerboundPacket, serializer::MinecraftPacketPart, Array},
     components::slots::Slot,
+    components::slots,
 };
 use std::{collections::BTreeMap, sync::mpsc::Sender};
 
@@ -208,46 +209,46 @@ impl std::fmt::Debug for PlayerInventory {
     }
 }
 
+use array_macro::array;
+
 pub enum Window {
-    Chest,
-    LargeChest,
-    CraftingTable,
-    Furnace,
-    BlastFurnace,
-    Smoker,
-    Dispenser,
-    EnchantmentTable,
-    BrewingStand,
-    VillagerTrading,
-    Beacon,
+    OneRow,
+    TwoRows,
+    ThreeRows,
+    FourRows,
+    FiveRows,
+    SixRows,
+    ThreeByThree,
     Anvil,
+    Beacon,
+    BlastFurnace,
+    BrewingStand,
+    Crafting,
+    Enchantment,
+    Furnace,
+    GrindStone,
     Hopper,
-    ShulkerBox,
-    Llama,
-    Horse,
-    Donkey,
-    CartographyTable,
-    Grindstone,
     Lectern,
     Loom,
-    Stonecutter,
+    Merchant,
+    ShulkerBox,
+    Smithing,
+    Smoker,
+    Cartography,
+    StoneCutter,
 }
-
-use array_macro::array;
 
 pub struct Windows {
     pub player_inventory: PlayerInventory,
     cursor: Slot,
+    carried_item: Slot,
     pub windows: BTreeMap<i8, Window>,
-    window_click_states: BTreeMap<i8, Vec<Option<bool>>>,
     sender: Sender<Vec<u8>>,
+    state_id: i32,
 }
 
 impl Windows {
     pub fn new(sender: Sender<Vec<u8>>) -> Self {
-        let mut window_click_states = BTreeMap::new();
-        window_click_states.insert(0, Vec::new());
-
         Windows {
             player_inventory: PlayerInventory {
                 slots: array![Slot {item: None}; 46],
@@ -255,25 +256,26 @@ impl Windows {
                 held_item: 0,
             },
             cursor: Slot { item: None },
+            carried_item: Slot { item: None },
             windows: BTreeMap::new(),
-            window_click_states,
             sender,
+            state_id: -1,
         }
     }
 
-    pub fn get_cursor(&self) -> &Slot {
+    pub fn cursor(&self) -> &Slot {
         &self.cursor
     }
 
-    pub fn click_slot(&mut self, window_id: i8, slot_id: usize) -> i16 {
+    pub fn click_slot(&mut self, window_id: i8, slot_id: usize) {
         let item = match window_id {
             0 => {
-                /*trace!(
+                trace!(
                     "clicking item at {}: cursor = {:?}, clicked = {:?}",
                     slot_id,
                     self.cursor,
                     self.player_inventory.slots[slot_id]
-                );*/
+                );
 
                 // It might be possible to make an addition
                 let mut addition_result = None;
@@ -311,65 +313,50 @@ impl Windows {
                 todo!()
             }
         };
-        let action_id = self.register_new_action(window_id);
+
+        let mut new_slot_values = BTreeMap::new();
+        new_slot_values.insert(slot_id as i16, match window_id {
+            0 => self.player_inventory.slots[slot_id].clone(),
+            window_id => todo!(),
+        });
+
         self.sender
             .send(
                 ServerboundPacket::ClickWindowSlot {
                     window_id,
                     slot: slot_id as i16,
                     button: 0,
-                    action_id,
+                    state_id: VarInt(self.state_id),
                     mode: 0.into(),
+                    new_slot_values: new_slot_values.into(),
                     clicked_item: Slot { item },
                 }
                 .serialize_minecraft_packet()
                 .unwrap(),
             )
             .unwrap();
-        action_id
     }
 
-    fn register_new_action(&mut self, window_id: i8) -> i16 {
-        if let Some(window_click_states) = self.window_click_states.get_mut(&window_id) {
-            window_click_states.push(None);
-            (window_click_states.len() - 1) as i16
-        } else {
-            error!("New action registered in closed window");
-            0
-        }
+    pub fn handle_open_window_packet(&mut self, window_id: i32, window_type: slots::WindowType, window_title: &str) {
+        trace!("Opening window {}, called {} (type={:?})", window_id, window_title, window_type);
     }
 
-    pub fn get_action_state(&self, window_id: i8, action_id: i16) -> &Option<bool> {
-        if let Some(window_click_states) = self.window_click_states.get(&window_id) {
-            if let Some(state) = window_click_states.get(action_id as usize) {
-                state
-            } else {
-                warn!("Window action state with inexistant id ({})", action_id);
-                &None
-            }
-        } else {
-            warn!("Window action state requested in closed window");
-            &None
-        }
-    }
+    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Vec<Slot>, state_id: i32, carried_item: Slot) {
+        trace!("Updating window {} ({} items) and carried item: {:?}", window_id, slots.len(), carried_item);
 
-    pub fn handle_open_window_packet(&mut self, window_id: i32, window_type: i32) {
-        self.window_click_states.insert(window_id as i8, Vec::new());
-        trace!("Opening window {} (type={})", window_id, window_type);
-    }
+        self.carried_item = carried_item;
+        self.state_id = state_id;
 
-    pub fn handle_update_window_items_packet(&mut self, window_id: i8, slots: Array<minecraft_protocol::components::slots::Slot, VarInt>) {
-        trace!("Updating window {} ({} items)", window_id, slots.items.len());
         match window_id {
             0 => {
-                if slots.items.len() != 46 {
+                if slots.len() != 46 {
                     error!(
                         "Failed to update window items. Player inventory contains 46 slots but {} where received.",
-                        slots.items.len()
+                        slots.len()
                     );
                     return;
                 }
-                for (idx, slot) in slots.items.into_iter().enumerate() {
+                for (idx, slot) in slots.into_iter().enumerate() {
                     self.player_inventory.slots[idx] = slot;
                 }
 
@@ -381,8 +368,11 @@ impl Windows {
         }
     }
 
-    pub fn handle_set_slot_packet(&mut self, window_id: i8, slot_id: i16, slot_data: Slot) {
+    pub fn handle_set_slot_packet(&mut self, window_id: i8, state_id: i32, slot_id: i16, slot_data: Slot) {
         trace!("Setting slot {} in window {} to {:?}.", slot_id, window_id, slot_data);
+
+        self.state_id = state_id;
+
         match window_id {
             -1 if slot_id == -1 => {
                 self.cursor = slot_data;
@@ -398,10 +388,9 @@ impl Windows {
     
     pub fn handle_close_window_packet(&mut self, window_id: i8) {
         trace!("Closing window {}", window_id);
-        let r1 = self.windows.remove(&window_id).is_none();
-        let r2 = self.window_click_states.remove(&window_id).is_none();
-        if r1 || r2 {
-            warn!("There was no window {} ({}, {})", window_id, r1, r2);
+
+        if self.windows.remove(&window_id).is_none() {
+            warn!("There was no window {}", window_id);
         }
     }
 }
