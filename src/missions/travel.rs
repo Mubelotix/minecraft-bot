@@ -29,6 +29,7 @@ pub fn travel(destination: (i32, i32, i32), maximum_work_allowed: usize, mt_bot:
             bot.position.as_ref().unwrap().z,
         );
         let (bx, by, bz): (i32, i32, i32) = (x.floor() as i32, y.floor() as i32, z.floor() as i32);
+        let on_ground: bool = bot.map.is_on_ground(x, y, z);
         let mut jump: bool = false;
 
         if stucked_detector > 100 {
@@ -63,7 +64,7 @@ pub fn travel(destination: (i32, i32, i32), maximum_work_allowed: usize, mt_bot:
             continue 'mt_travel;
         }
 
-        if ny > by && bot.map.is_on_ground(x, y, z) {
+        if ny > by && on_ground {
             jump = true;
         }
 
@@ -98,6 +99,21 @@ pub fn travel(destination: (i32, i32, i32), maximum_work_allowed: usize, mt_bot:
             }
             _ => {}
         }
+
+        let yaw: f32 = match ((nx as f64 + 0.5).partial_cmp(&x), (nz as f64 + 0.5).partial_cmp(&z)) {
+            (None, None) | (Some(Ordering::Equal), Some(Ordering::Equal)) | (None, Some(Ordering::Equal)) | (Some(Ordering::Equal), None) => {
+                bot.position.as_ref().unwrap().yaw
+            }
+            (None, Some(Ordering::Less)) | (Some(Ordering::Equal), Some(Ordering::Less)) => 180.0,
+            (None, Some(Ordering::Greater)) | (Some(Ordering::Equal), Some(Ordering::Greater)) => 0.0,
+            (Some(Ordering::Less), None) | (Some(Ordering::Less), Some(Ordering::Equal)) => 90.0,
+            (Some(Ordering::Greater), None) | (Some(Ordering::Greater), Some(Ordering::Equal)) => 270.0,
+            (Some(Ordering::Less), Some(Ordering::Less)) => 135.0,
+            (Some(Ordering::Less), Some(Ordering::Greater)) => 45.0,
+            (Some(Ordering::Greater), Some(Ordering::Less)) => 225.0,
+            (Some(Ordering::Greater), Some(Ordering::Greater)) => 315.0,
+        };
+        packets.push(ServerboundPacket::PlayerRotation { yaw, pitch: 0.0, on_ground });
 
         stucked_detector += 1;
         bot.position.as_mut().unwrap().x = x;
