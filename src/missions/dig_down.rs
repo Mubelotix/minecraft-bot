@@ -93,6 +93,7 @@ pub fn dig_down(until_block: i32, mt_bot: &mut Bot, mt_packets: &mut Vec<Serverb
             location: Position { x, y: y as i16, z },
             face: minecraft_protocol::components::blocks::BlockFace::Top,
         });
+        bot.map.set_block(x, y, z, Block::Air);
         bot.windows.player_inventory.use_held_item(1);
 
         // TODO Replace blocks

@@ -327,6 +327,8 @@ impl Bot {
                     }
                 } else if message.contains("travel") {
                     *self.mission.lock().unwrap() = Some(Box::new(travel((-222, 75, 54), 7500)));
+                } else if message.contains("cut trees") {
+                    *self.mission.lock().unwrap() = Some(Box::new(cut_trees(100, 50)));
                 }
             }
             ClientboundPacket::OpenWindow {
