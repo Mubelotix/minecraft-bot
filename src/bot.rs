@@ -28,7 +28,7 @@ pub struct Bot {
     pub food: u32,
     pub food_saturation: f32,
     pub vertical_speed: f64,
-    pub mission: Arc<Mutex<Option<Box<dyn Mission>>>>,
+    pub mission: Arc<Mutex<Option<Box<dyn Mission<Result<String, String>>>>>>,
 }
 
 impl Bot {
@@ -142,8 +142,26 @@ impl Bot {
         // TODO, replace path with mission
 
         let mission = Arc::clone(&self.mission);
+        let mut done = false;
         if let Some(mission) = mission.lock().unwrap().as_mut() {
-            mission.execute(self, &mut packets);
+            match mission.execute(self, &mut packets) {
+                MissionResult::InProgress => (),
+                MissionResult::Done(Ok(message)) => {
+                    info!("Mission success: {}", message);
+                    done = true;
+                }
+                MissionResult::Done(Err(error)) => {
+                    warn!("Mission failure: {}", error);
+                    done = true;
+                }
+                MissionResult::Outdated => {
+                    error!("Outdated mission");
+                    done = true;
+                },
+            }
+        }
+        if done {
+            *mission.lock().unwrap() = None;
         }
 
         if let Some(position) = self.position.as_mut() {
@@ -226,11 +244,7 @@ impl Bot {
                 self.self_entity_id = Some(player_id);
                 self.world_name = Some(world_name.to_string());
             }
-            ClientboundPacket::UpdateHealth {
-                health,
-                food,
-                food_saturation,
-            } => {
+            ClientboundPacket::UpdateHealth { health, food, food_saturation } => {
                 self.health = health;
                 self.food = std::cmp::max(food.0, 0) as u32;
                 self.food_saturation = food_saturation;
@@ -255,8 +269,7 @@ impl Bot {
                 //trace!("ClientboundPacket::MultiBlockChange => Setting {} blocks", blocks.items.len());
                 for block in blocks.items {
                     let (block, block_x, block_y, block_z) = MultiBlockChange::decode_block(unsafe { std::mem::transmute(block.0) });
-                    self.map
-                        .set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
+                    self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, block);
                 }
             }
             ClientboundPacket::BlockChange { location, block_state } => {
@@ -267,41 +280,17 @@ impl Bot {
                 let block_y = location.y.rem_euclid(16) as u8;
                 let block_z = location.z.rem_euclid(16) as u8;
                 //trace!("ClientboundPacket::BlockChange => Setting 1 block at {:?}", location);
-                self.map
-                    .set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
-                        std::mem::transmute(block_state.0)
-                    });
+                self.map.set_block_state_complex(chunk_x, chunk_y, chunk_z, block_x, block_y, block_z, unsafe {
+                    std::mem::transmute(block_state.0)
+                });
             }
             ClientboundPacket::ChatMessage {
                 message,
                 position: _,
                 sender: _,
             } => {
-                if message.contains("test path") {
-                    let position = self.position.as_ref().unwrap();
-                    if let Some(mission) = TravelMission::new(&self.map, (position.x as i32, position.y as i32, position.z as i32), (-222, 75, 54), 7500) {
-                        *self.mission.lock().unwrap() = Some(Box::new(mission));
-                    }
-                } else if message.contains("find diams") {
-                    let position = self.position.as_ref().unwrap();
-                    info!(
-                        "{} diamonds blocks found",
-                        self.map
-                            .search_blocks(position.x as i32, position.z as i32, &[Block::DiamondBlock, Block::DiamondOre], 5000, 32*32)
-                            .len()
-                    );
-                } else if message.contains("settle") {
-                    *self.mission.lock().unwrap() = Some(Box::new(SettlementMission::new()));
-                } else if message.contains("dig down") {
-                    *self.mission.lock().unwrap() = Some(Box::new(DigDownMission::new(12)));
-                } else if message.contains("test inventory 1") {
-                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemTo::new(
-                        1,
-                        vec![minecraft_protocol::ids::items::Item::Sand],
-                        35,
-                    )));
-                } else if message.contains("test inventory 2") {
-                    *self.mission.lock().unwrap() = Some(Box::new(MoveItemTo::new(1, vec![minecraft_protocol::ids::items::Item::Sand], 45)));
+                if message.contains("dig down") {
+                    *self.mission.lock().unwrap() = Some(Box::new(dig_down(12)));
                 }
             }
             ClientboundPacket::OpenWindow {
@@ -311,11 +300,17 @@ impl Bot {
             } => {
                 self.windows.handle_open_window_packet(window_id.0, window_type.0);
             }
-            ClientboundPacket::WindowItems { window_id, slots, state_id, carried_item } => {
+            ClientboundPacket::WindowItems {
+                window_id,
+                slots,
+                state_id,
+                carried_item,
+            } => {
                 self.windows.handle_update_window_items_packet(window_id, slots);
             }
             ClientboundPacket::SetSlot {
                 window_id,
+                state_id: _,
                 slot_index,
                 slot_value,
             } => {
@@ -347,15 +342,7 @@ impl Bot {
             ClientboundPacket::EntityMetadata { entity_id, metadata } => {
                 self.entities.handle_entity_metadata_packet(entity_id.0, metadata);
             }
-            ClientboundPacket::SpawnPlayer {
-                id,
-                uuid,
-                x,
-                y,
-                z,
-                yaw,
-                pitch,
-            } => {
+            ClientboundPacket::SpawnPlayer { id, uuid, x, y, z, yaw, pitch } => {
                 self.entities.handle_spawn_player_packet(id.0, uuid, x, y, z, yaw, pitch);
             }
             ClientboundPacket::SpawnLivingEntity {
@@ -372,20 +359,8 @@ impl Bot {
                 velocity_y,
                 velocity_z,
             } => {
-                self.entities.handle_spawn_living_entity_packet(
-                    id.0,
-                    uuid,
-                    entity_type,
-                    x,
-                    y,
-                    z,
-                    yaw,
-                    pitch,
-                    head_pitch,
-                    velocity_x,
-                    velocity_y,
-                    velocity_z,
-                );
+                self.entities
+                    .handle_spawn_living_entity_packet(id.0, uuid, entity_type, x, y, z, yaw, pitch, head_pitch, velocity_x, velocity_y, velocity_z);
             }
             ClientboundPacket::SpawnExperienceOrb { id, x, y, z, count } => {
                 self.entities.handle_spawn_experience_orb_packet(id.0, x, y, z, count);
@@ -409,8 +384,7 @@ impl Bot {
                 delta_z,
                 on_ground,
             } => {
-                self.entities
-                    .handle_entity_position_packet(entity_id.0, delta_x, delta_y, delta_z, on_ground);
+                self.entities.handle_entity_position_packet(entity_id.0, delta_x, delta_y, delta_z, on_ground);
             }
             ClientboundPacket::EntityPositionAndRotation {
                 entity_id,
@@ -437,8 +411,7 @@ impl Bot {
                 velocity_y,
                 velocity_z,
             } => {
-                self.entities
-                    .handle_entity_velocity_packet(entity_id.0, velocity_x, velocity_y, velocity_z);
+                self.entities.handle_entity_velocity_packet(entity_id.0, velocity_x, velocity_y, velocity_z);
             }
             ClientboundPacket::EntityEquipment { entity_id, equipment } => {
                 self.entities.handle_entity_equipement_packet(entity_id.0, equipment);
