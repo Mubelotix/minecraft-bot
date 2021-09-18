@@ -10,11 +10,11 @@ pub enum MissionResult<T> {
 }
 
 pub trait Mission<T> {
-    fn execute(&mut self) -> MissionResult<T>;
+    fn execute(&mut self, variable: usize) -> MissionResult<T>;
 }
 
 #[tick_distributed]
-fn submission(target: usize) -> Result<String, &'static str> {
+fn submission(target: usize, mt_variable: usize) -> Result<String, &'static str> {
     let mut counter: usize = 0;
 
     'mt_finder: loop {
@@ -28,7 +28,7 @@ fn submission(target: usize) -> Result<String, &'static str> {
 }
 
 #[tick_distributed]
-fn mission(lorem: usize) -> Result<usize, &'static str> {
+fn mission(lorem: usize, mt_variable: usize) -> Result<usize, &'static str> {
     let message: Result<String, &'static str> = mt_submission(50);
 
     let mut i: u32 = 0;
@@ -48,5 +48,5 @@ fn mission(lorem: usize) -> Result<usize, &'static str> {
 fn test() {
     let mut mission = mission(5);
 
-    while mission.execute() == MissionResult::InProgress {}
+    while mission.execute(5) == MissionResult::InProgress {}
 }

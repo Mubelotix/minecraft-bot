@@ -189,31 +189,31 @@ pub(crate) fn replace_code(
 }
 
 // TODO: Simplify this as we can't even support nested expressions
-pub(crate) fn replace_mt_functions_in_expr(expr: &mut Expr) {
+pub(crate) fn replace_mt_functions_in_expr(expr: &mut Expr, mt_args: &Vec<crate::MissionArgument>) {
     match expr {
         Expr::Array(expr_array) => {
             for expr in &mut expr_array.elems {
-                replace_mt_functions_in_expr(expr);
+                replace_mt_functions_in_expr(expr, mt_args);
             }
         }
-        Expr::Assign(expr_assign) => replace_mt_functions_in_expr(&mut expr_assign.right),
-        Expr::AssignOp(expr_assign_op) => replace_mt_functions_in_expr(&mut expr_assign_op.right),
-        Expr::Async(expr_async) => replace_mt_functions(&mut expr_async.block.stmts),
-        Expr::Await(expr_await) => replace_mt_functions_in_expr(&mut expr_await.base),
+        Expr::Assign(expr_assign) => replace_mt_functions_in_expr(&mut expr_assign.right, mt_args),
+        Expr::AssignOp(expr_assign_op) => replace_mt_functions_in_expr(&mut expr_assign_op.right, mt_args),
+        Expr::Async(expr_async) => replace_mt_functions(&mut expr_async.block.stmts, mt_args),
+        Expr::Await(expr_await) => replace_mt_functions_in_expr(&mut expr_await.base, mt_args),
         Expr::Binary(expr_binary) => {
-            replace_mt_functions_in_expr(&mut expr_binary.left);
-            replace_mt_functions_in_expr(&mut expr_binary.right);
+            replace_mt_functions_in_expr(&mut expr_binary.left, mt_args);
+            replace_mt_functions_in_expr(&mut expr_binary.right, mt_args);
         }
-        Expr::Block(expr_block) => replace_mt_functions(&mut expr_block.block.stmts),
-        Expr::Box(expr_box) => replace_mt_functions_in_expr(&mut expr_box.expr),
+        Expr::Block(expr_block) => replace_mt_functions(&mut expr_block.block.stmts, mt_args),
+        Expr::Box(expr_box) => replace_mt_functions_in_expr(&mut expr_box.expr, mt_args),
         Expr::Break(expr_break) => {
             if let Some(expr) = &mut expr_break.expr {
-                replace_mt_functions_in_expr(expr)
+                replace_mt_functions_in_expr(expr, mt_args)
             }
         }
         Expr::Call(expr_call) => {
             for arg in &mut expr_call.args {
-                replace_mt_functions_in_expr(arg);
+                replace_mt_functions_in_expr(arg, mt_args);
             }
 
             let func: &mut Expr = &mut expr_call.func;
@@ -244,11 +244,14 @@ pub(crate) fn replace_mt_functions_in_expr(expr: &mut Expr) {
                 loop_name.push_str("_procmacroderived");
                 let loop_name = Lifetime::new(&loop_name, Span::call_site());
 
+                // Gather mt args
+                let mt_args = mt_args.iter().map(|a| &a.ident);
+
                 // Build the code
                 let tokens = quote! {{
                     let mut submission: #mission_ty = #expr_call;
                     #loop_name: loop {
-                        match submission.execute() {
+                        match submission.execute(#(#mt_args,)*) {
                             MissionResult::InProgress => (),
                             MissionResult::Done(value) => break #loop_name value,
                             MissionResult::Outdated => panic!("Outdated mission"),
@@ -258,98 +261,98 @@ pub(crate) fn replace_mt_functions_in_expr(expr: &mut Expr) {
                 *expr = syn::parse2(tokens).unwrap();
             }
         }
-        Expr::Cast(expr_cast) => replace_mt_functions_in_expr(&mut expr_cast.expr),
-        Expr::Closure(closure_expr) => replace_mt_functions_in_expr(&mut closure_expr.body),
+        Expr::Cast(expr_cast) => replace_mt_functions_in_expr(&mut expr_cast.expr, mt_args),
+        Expr::Closure(closure_expr) => replace_mt_functions_in_expr(&mut closure_expr.body, mt_args),
         Expr::Continue(_) => (),
         Expr::Field(_) => (),
         Expr::ForLoop(expr_for) => {
-            replace_mt_functions_in_expr(&mut expr_for.expr);
-            replace_mt_functions(&mut expr_for.body.stmts);
+            replace_mt_functions_in_expr(&mut expr_for.expr, mt_args);
+            replace_mt_functions(&mut expr_for.body.stmts, mt_args);
         }
-        Expr::Group(expr_group) => replace_mt_functions_in_expr(&mut expr_group.expr),
+        Expr::Group(expr_group) => replace_mt_functions_in_expr(&mut expr_group.expr, mt_args),
         Expr::If(expr_if) => {
-            replace_mt_functions_in_expr(&mut expr_if.cond);
-            replace_mt_functions(&mut expr_if.then_branch.stmts);
+            replace_mt_functions_in_expr(&mut expr_if.cond, mt_args);
+            replace_mt_functions(&mut expr_if.then_branch.stmts, mt_args);
             if let Some((_, else_expr)) = expr_if.else_branch.as_mut() {
-                replace_mt_functions_in_expr(else_expr);
+                replace_mt_functions_in_expr(else_expr, mt_args);
             }
         }
         Expr::Index(expr_index) => {
-            replace_mt_functions_in_expr(&mut expr_index.expr);
-            replace_mt_functions_in_expr(&mut expr_index.index);
+            replace_mt_functions_in_expr(&mut expr_index.expr, mt_args);
+            replace_mt_functions_in_expr(&mut expr_index.index, mt_args);
         }
-        Expr::Let(expr_let) => replace_mt_functions_in_expr(&mut expr_let.expr),
+        Expr::Let(expr_let) => replace_mt_functions_in_expr(&mut expr_let.expr, mt_args),
         Expr::Lit(_) => (),
-        Expr::Loop(expr_loop) => replace_mt_functions(&mut expr_loop.body.stmts),
+        Expr::Loop(expr_loop) => replace_mt_functions(&mut expr_loop.body.stmts, mt_args),
         Expr::Macro(_) => (),
         Expr::Match(expr_match) => {
-            replace_mt_functions_in_expr(&mut expr_match.expr);
+            replace_mt_functions_in_expr(&mut expr_match.expr, mt_args);
             for arm in &mut expr_match.arms {
                 if let Some((_, guard)) = &mut arm.guard {
-                    replace_mt_functions_in_expr(guard);
+                    replace_mt_functions_in_expr(guard, mt_args);
                 }
-                replace_mt_functions_in_expr(&mut arm.body);
+                replace_mt_functions_in_expr(&mut arm.body, mt_args);
             }
         }
         Expr::MethodCall(expr_method) => {
-            replace_mt_functions_in_expr(&mut expr_method.receiver);
+            replace_mt_functions_in_expr(&mut expr_method.receiver, mt_args);
             for arg in &mut expr_method.args {
-                replace_mt_functions_in_expr(arg);
+                replace_mt_functions_in_expr(arg, mt_args);
             }
         }
-        Expr::Paren(expr_paren) => replace_mt_functions_in_expr(&mut expr_paren.expr),
+        Expr::Paren(expr_paren) => replace_mt_functions_in_expr(&mut expr_paren.expr, mt_args),
         Expr::Path(_) => (),
         Expr::Range(expr_range) => {
             if let Some(expr) = &mut expr_range.from {
-                replace_mt_functions_in_expr(expr);
+                replace_mt_functions_in_expr(expr, mt_args);
             }
             if let Some(expr) = &mut expr_range.to {
-                replace_mt_functions_in_expr(expr);
+                replace_mt_functions_in_expr(expr, mt_args);
             }
         }
-        Expr::Reference(expr_ref) => replace_mt_functions_in_expr(&mut expr_ref.expr),
-        Expr::Repeat(expr_repeat) => replace_mt_functions_in_expr(&mut expr_repeat.expr),
+        Expr::Reference(expr_ref) => replace_mt_functions_in_expr(&mut expr_ref.expr, mt_args),
+        Expr::Repeat(expr_repeat) => replace_mt_functions_in_expr(&mut expr_repeat.expr, mt_args),
         Expr::Return(expr_return) => {
             if let Some(expr) = &mut expr_return.expr {
-                replace_mt_functions_in_expr(expr)
+                replace_mt_functions_in_expr(expr, mt_args)
             }
         }
         Expr::Struct(_) => (),
-        Expr::Try(expr_try) => replace_mt_functions_in_expr(&mut expr_try.expr),
+        Expr::Try(expr_try) => replace_mt_functions_in_expr(&mut expr_try.expr, mt_args),
         Expr::TryBlock(_) => unimplemented!("try blocks"),
         Expr::Tuple(expr_tuple) => {
             for expr in &mut expr_tuple.elems {
-                replace_mt_functions_in_expr(expr)
+                replace_mt_functions_in_expr(expr, mt_args)
             }
         }
         Expr::Type(_) => (),
-        Expr::Unary(expr_unary) => replace_mt_functions_in_expr(&mut expr_unary.expr),
-        Expr::Unsafe(expr_unsafe) => replace_mt_functions(&mut expr_unsafe.block.stmts),
+        Expr::Unary(expr_unary) => replace_mt_functions_in_expr(&mut expr_unary.expr, mt_args),
+        Expr::Unsafe(expr_unsafe) => replace_mt_functions(&mut expr_unsafe.block.stmts, mt_args),
         Expr::Verbatim(_) => (),
         Expr::While(expr_while) => {
-            replace_mt_functions_in_expr(&mut expr_while.cond);
-            replace_mt_functions(&mut expr_while.body.stmts);
+            replace_mt_functions_in_expr(&mut expr_while.cond, mt_args);
+            replace_mt_functions(&mut expr_while.body.stmts, mt_args);
         }
         Expr::Yield(expr_yields) => {
             if let Some(expr) = &mut expr_yields.expr {
-                replace_mt_functions_in_expr(expr)
+                replace_mt_functions_in_expr(expr, mt_args)
             }
         }
         Expr::__TestExhaustive(_) => todo!(),
     }
 }
 
-pub(crate) fn replace_mt_functions(stmts: &mut Vec<Stmt>) {
+pub(crate) fn replace_mt_functions(stmts: &mut Vec<Stmt>, mt_args: &Vec<crate::MissionArgument>) {
     for stmt in stmts {
         match stmt {
             Stmt::Local(stmt) => {
                 if let Some(expr) = &mut stmt.init {
-                    replace_mt_functions_in_expr(&mut expr.1);
+                    replace_mt_functions_in_expr(&mut expr.1, mt_args);
                 }
             }
             Stmt::Item(_) => {}
-            Stmt::Expr(expr) => replace_mt_functions_in_expr(expr),
-            Stmt::Semi(expr, _) => replace_mt_functions_in_expr(expr),
+            Stmt::Expr(expr) => replace_mt_functions_in_expr(expr, mt_args),
+            Stmt::Semi(expr, _) => replace_mt_functions_in_expr(expr, mt_args),
         }
     }
 }

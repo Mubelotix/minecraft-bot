@@ -224,7 +224,6 @@ fn analyse_block(
 pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let mut input = parse_macro_input!(item as ItemFn);
-    replace_mt_functions(&mut input.block.stmts);
 
     // Generates the names of the generated structures from the name of the input function
     let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
@@ -232,6 +231,9 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Modify the function so that it creates a mission instead
     let (mission_builder, init_args, mt_args) = generate_mission_builder(input.clone(), &mission_name);
+
+    // Replace mt functions
+    replace_mt_functions(&mut input.block.stmts, &mt_args);
 
     let mut mission_states: Vec<MissionState> = Vec::new();
     let mut loop_indexes: HashMap<String, (usize, usize)> = HashMap::new();
