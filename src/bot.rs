@@ -325,6 +325,8 @@ impl Bot {
                             }
                         }
                     }
+                } else if message.contains("travel") {
+                    *self.mission.lock().unwrap() = Some(Box::new(travel((-222, 75, 54), 7500)));
                 }
             }
             ClientboundPacket::OpenWindow {

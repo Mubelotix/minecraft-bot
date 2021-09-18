@@ -1,7 +1,9 @@
 use crate::*;
 
 mod dig_down;
+mod travel;
 pub use dig_down::*;
+pub use travel::*;
 
 #[derive(Debug, PartialEq)]
 pub enum MissionResult<T> {
