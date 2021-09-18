@@ -77,6 +77,7 @@ impl MissionState {
 pub(crate) enum PermissiveType {
     RestrictiveType(Type),
     Path(TypePath),
+    StaticRef(TypeReference),
 }
 
 impl ToTokens for PermissiveType {
@@ -84,6 +85,7 @@ impl ToTokens for PermissiveType {
         match self {
             PermissiveType::RestrictiveType(e) => e.to_tokens(tokens),
             PermissiveType::Path(e) => e.to_tokens(tokens),
+            PermissiveType::StaticRef(e) => e.to_tokens(tokens),
         }
     }
 }

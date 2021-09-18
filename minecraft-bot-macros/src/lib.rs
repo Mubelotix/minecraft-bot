@@ -7,6 +7,7 @@ use proc_macro::TokenStream;
 use proc_macro2::*;
 use quote::{format_ident, quote};
 use std::result::Result;
+use syn::spanned::Spanned;
 use syn::*;
 
 mod arguments;
@@ -151,7 +152,7 @@ fn analyse_block(
                         .span()
                         .error("The tick-distributed macro cannot infer type, please explicitely specify it."))
                 }
-                other => panic!("unsupported pat {:?} in function", other),
+                other => return Err(other.span().error("Unsupported pat")),
             };
 
             let mut name_idents: Vec<(Option<token::Mut>, Ident)> = match *pat.pat.clone() {
@@ -164,14 +165,26 @@ fn analyse_block(
                     })
                     .collect(),
                 Pat::Ident(ident) => vec![(ident.mutability, ident.ident)],
-                other => panic!("unsupported pat type {:?} in function", other),
+                other => return Err(other.span().error("Unsupported pat (2)")),
             };
 
             let mut types: Vec<PermissiveType> = match *pat.ty.clone() {
                 Type::Tuple(tuple) => tuple.elems.into_iter().map(PermissiveType::RestrictiveType).collect(),
                 Type::Paren(paren) => vec![PermissiveType::RestrictiveType(*paren.elem)],
                 Type::Path(path) => vec![PermissiveType::Path(path)],
-                other => panic!("unsupported type of variable {:?} in function", other),
+                Type::Reference(reference) => {
+                    let mut ok = false;
+                    if let Some(lifetime) = &reference.lifetime {
+                        if lifetime.ident.to_string() == "static" {
+                            ok = true;
+                        }
+                    }
+                    match ok {
+                        true => vec![PermissiveType::StaticRef(reference)],
+                        false => return Err(reference.span().error("Only static references are allowed")),
+                    }
+                }
+                other => return Err(other.span().error("Unsupported type of variable")),
             };
 
             assert_eq!(name_idents.len(), types.len());
