@@ -65,7 +65,18 @@ pub fn cut_trees(wood_goal: usize, sappling_goal: usize, mt_bot: &mut Bot, mt_pa
 
         // Check for needs
         if log_count >= wood_goal && sappling_count >= sappling_goal {
-            return Ok("Got all ressources!".to_string());
+            break 'mt_cut_tree;
+        }
+
+        // Pick up items
+        let mut items: Vec<(i32, i32, i32)> = bot.entities.get_items(Some(&WOOD_ITEMS));
+        'mt_pick_item: loop {
+            let (ix, iy, iz): (i32, i32, i32) = match items.pop() {
+                Some(item) => item,
+                None => break 'mt_pick_item,
+            };
+            
+            let result: Result<String, String> = mt_travel((ix, iy, iz), 1000);
         }
 
         // Select tree

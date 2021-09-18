@@ -275,7 +275,7 @@ impl Entities {
         for entity in self.entities.values() {
             if let Entity::OtherEntity {entity_type, metadata, x, y, z, ..} = entity {
                 if *entity_type == EntityType::Item {
-                    if let Some(EntityMetadataValue::Slot{slot}) = metadata.get(&7) {
+                    if let Some(EntityMetadataValue::Slot{slot}) = metadata.get(&8) {
                         if let Some(item) = &slot.item {
                             match filter {
                                 Some(filter) => {
