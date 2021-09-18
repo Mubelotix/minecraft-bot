@@ -89,21 +89,6 @@ fn analyse_block(
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
             }
-            Stmt::Expr(Expr::Block(expr_block)) => {
-                if let Some(active_mission_state) = active_mission_state.take() {
-                    mission_states.push(active_mission_state);
-                }
-
-                analyse_block(
-                    expr_block.block.stmts.clone(),
-                    fields.clone(),
-                    mission_states,
-                    false,
-                    loops,
-                    parent_loops.clone(),
-                    mission_name.clone(),
-                )?;
-            }
             Stmt::Local(Local { init: Some((_, init)), .. }) if matches!(*init.to_owned(), Expr::Block(_)) => {
                 let init = match *init.to_owned() {
                     Expr::Block(block) => block,

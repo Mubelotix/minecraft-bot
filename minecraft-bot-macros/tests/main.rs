@@ -34,6 +34,10 @@ fn mission(lorem: String, ipsum: u16, dolor: u8, mt_variable: usize) -> Result<u
                 break 'mt_inner;
             }
         }
+
+        if youpi > 150 {
+            break 'mt_main;
+        }
     }
 
     println!("yeah");
