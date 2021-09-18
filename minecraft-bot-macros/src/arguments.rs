@@ -31,7 +31,7 @@ impl From<&MissionArgument> for (Option<syn::token::Mut>, Ident, PermissiveType)
     }
 }
 
-pub fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident) -> (ItemFn, Vec<MissionArgument>, Vec<MissionArgument>) {
+pub fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident, state_name: &Ident) -> (ItemFn, Vec<MissionArgument>, Vec<MissionArgument>) {
     let raw_mission_args: Vec<_> = function.sig.inputs.iter().cloned().collect();
     let mut init_args = Vec::new();
     let mut mt_args = Vec::new();
@@ -69,7 +69,9 @@ pub fn generate_mission_builder(mut function: ItemFn, mission_name: &Ident) -> (
 
     function.block = Box::new(
         parse2(quote! {{
-            #mission_name::State0{#(#mission_args_idents,)*}
+            #mission_name {
+                state: Some(#state_name::State0{#(#mission_args_idents,)*}),
+            }
         }})
         .expect("Failed to create a mission builder"),
     );

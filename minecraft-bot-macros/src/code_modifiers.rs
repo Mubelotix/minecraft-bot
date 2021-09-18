@@ -131,7 +131,7 @@ pub(crate) fn replace_code_in_expr(
             };
 
             let tokens = quote! {{
-                *self = #state_name::Done {};
+                self.state = Some(#state_name::Done {});
                 return MissionResult::Done(#returned_expr);
             }};
             *expr = syn::parse2(tokens).unwrap();

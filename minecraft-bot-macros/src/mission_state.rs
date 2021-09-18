@@ -8,7 +8,7 @@ pub(crate) struct MissionState {
     pub(crate) fields: Vec<(Option<token::Mut>, Ident, PermissiveType)>,
     pub(crate) stmts: Vec<Stmt>,
     pub(crate) next_mission: Option<Box<MissionState>>,
-    pub(crate) mission_name: Ident,
+    pub(crate) state_name: Ident,
 }
 
 impl MissionState {
@@ -26,21 +26,21 @@ impl MissionState {
         let stmts = &self.stmts;
         let variant_field_idents = self.fields.iter().map(|t| &t.1);
         let variant_field_mutability = self.fields.iter().map(|t| &t.0);
-        let mission_name = &self.mission_name;
+        let state_name = &self.state_name;
 
         if let Some(next_mission) = &self.next_mission {
             let next_variant_ident = &next_mission.variant_ident;
             let next_variant_fields = next_mission.fields.iter().map(|f| &f.1);
 
             quote! {
-                #mission_name::#variant_ident { #(#variant_field_mutability #variant_field_idents,)* } => {
+                #state_name::#variant_ident { #(#variant_field_mutability #variant_field_idents,)* } => {
                     #(#stmts)*
-                    *self = #mission_name::#next_variant_ident { #(#next_variant_fields, )* };
+                    self.state = Some(#state_name::#next_variant_ident { #(#next_variant_fields, )* });
                 },
             }
         } else {
             quote! {
-                #mission_name::#variant_ident { #(#variant_field_mutability #variant_field_idents,)* } => {
+                #state_name::#variant_ident { #(#variant_field_mutability #variant_field_idents,)* } => {
                     #(#stmts)*
                 },
             }
@@ -49,12 +49,12 @@ impl MissionState {
 
     pub(crate) fn switch_to_this_state(&self, break_value: Option<Box<Expr>>) -> Expr {
         let variant_ident = &self.variant_ident;
-        let mission_name = &self.mission_name;
+        let state_name = &self.state_name;
         match break_value {
             None => {
                 let fields = self.fields.iter().map(|f| &f.1);
                 let tokens = quote! {{
-                    *self = #mission_name::#variant_ident { #(#fields, )* };
+                    self.state = Some(#state_name::#variant_ident { #(#fields, )* });
                     return MissionResult::InProgress;
                 }};
                 syn::parse2(tokens).expect("Code generation bug")
@@ -64,7 +64,7 @@ impl MissionState {
                 let last_field_ident = fields.pop().unwrap().1;
                 let fields = fields.iter().map(|f| &f.1);
                 let tokens = quote! {{
-                    *self = #mission_name::#variant_ident { #(#fields, )* #last_field_ident: #break_value };
+                    self.state = Some(#state_name::#variant_ident { #(#fields, )* #last_field_ident: #break_value });
                     return MissionResult::InProgress;
                 }};
                 syn::parse2(tokens).expect("Code generation bug")

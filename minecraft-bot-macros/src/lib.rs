@@ -25,6 +25,7 @@ fn analyse_block(
     loops: &mut HashMap<String, (usize, usize)>,
     parent_loops: Vec<String>,
     mission_name: Ident,
+    state_name: Ident,
 ) -> Result<(), Diagnostic> {
     let mut active_mission_state: Option<MissionState> = None;
     let first_idx = mission_states.len();
@@ -63,6 +64,7 @@ fn analyse_block(
                     loops,
                     parent_loops,
                     mission_name.clone(),
+                    state_name.clone(),
                 )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
@@ -85,6 +87,7 @@ fn analyse_block(
                     loops,
                     parent_loops,
                     mission_name.clone(),
+                    state_name.clone(),
                 )?;
                 let break_index = mission_states.len();
                 loops.insert(label, (continue_index, break_index));
@@ -107,6 +110,7 @@ fn analyse_block(
                     loops,
                     parent_loops.clone(),
                     mission_name.clone(),
+                    state_name.clone(),
                 )?;
             }
             expr => {
@@ -119,7 +123,7 @@ fn analyse_block(
                             fields: fields.clone(),
                             stmts: Vec::new(),
                             next_mission: None,
-                            mission_name: mission_name.clone(),
+                            state_name: state_name.clone(),
                         });
                         active_mission_state.as_mut().unwrap()
                     }
@@ -196,7 +200,7 @@ fn analyse_block(
                     fields,
                     stmts: Vec::new(),
                     next_mission: Some(Box::new(first)),
-                    mission_name,
+                    state_name: state_name.clone(),
                 });
             }
         }
@@ -213,9 +217,10 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Generates the names of the generated structures from the name of the input function
     let base_name = input.sig.ident.to_string().from_case(Case::Snake).to_case(Case::Pascal);
     let mission_name = format_ident!("{}Mission", base_name);
+    let state_name = format_ident!("{}MissionState", base_name);
 
     // Modify the function so that it creates a mission instead
-    let (mission_builder, init_args, mt_args) = generate_mission_builder(input.clone(), &mission_name);
+    let (mission_builder, init_args, mt_args) = generate_mission_builder(input.clone(), &mission_name, &state_name);
 
     // Replace mt functions
     replace_mt_functions(&mut input.block.stmts, &mt_args);
@@ -230,6 +235,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         &mut loop_indexes,
         Vec::new(),
         mission_name.clone(),
+        state_name.clone(),
     );
     if let Err(e) = r {
         return TokenStream::from(e.emit_as_item_tokens());
@@ -259,7 +265,7 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     for mission_state in &mut mission_states {
-        replace_code(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &mission_name);
+        replace_code(&mut mission_state.stmts, &loops, &mission_state.parent_loops, &state_name);
     }
     for i in 0..mission_states.len() - 1 {
         if mission_states[i].next_mission.is_none() {
@@ -278,9 +284,13 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mt_args_types = mt_args.iter().map(|a| &a.ty);
 
     let expanded = quote! {
-        #visibility enum #mission_name {
+        enum #state_name {
             #(#declaration,)*
             Done
+        }
+
+        #visibility struct #mission_name {
+            state: Option<#state_name>,
         }
 
         #mission_builder
@@ -289,14 +299,12 @@ pub fn tick_distributed(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[allow(unused_mut)]
             fn execute(&mut self, #(#mt_args_idents: #mt_args_types, )*) -> MissionResult<#output> {
-                #[allow(clippy::mem_replace_with_uninit)]
-                #[allow(clippy::uninit_assumed_init)]
-                let state: #mission_name = unsafe { std::mem::replace(self, std::mem::MaybeUninit::uninit().assume_init()) };
+                let state: #state_name = self.state.take().unwrap();
 
                 match state {
                     #(#match_arms)*
-                    #mission_name::Done => {
-                        *self = #mission_name::Done;
+                    #state_name::Done => {
+                        self.state = Some(#state_name::Done);
                         return MissionResult::Outdated;
                     }
                 }
